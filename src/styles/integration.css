@@ -1,0 +1,560 @@
+/*
+ * Estilos de integración: lo mínimo que el diseño de Mireya/Ximena no traía
+ * porque su demo tenía un solo AOI y ninguna verificación real.
+ * Los estilos del diseño viven en src/App.css y src/styles/mireya/.
+ */
+
+/* Selector de área de interés en la cabecera. */
+.aoi-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted, #b2baa0);
+}
+.aoi-picker select {
+  font: inherit;
+  color: var(--text-primary, #eef5ff);
+  background: transparent;
+  border: 1px solid var(--border, rgba(213, 219, 169, 0.27));
+  border-radius: 5px;
+  padding: 5px 8px;
+}
+.aoi-picker select option {
+  color: #14213c;
+}
+
+/* Insignia de procedencia: el dato real se distingue del fixture simulado. */
+.data-badge.origin-nisar_real {
+  color: #78ddad;
+  border-color: #78ddad88;
+}
+
+/* Insignia de integridad en el pie. */
+.app-footer .integrity-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.app-footer .integrity-ok {
+  color: #78ddad;
+}
+.app-footer .integrity-bad {
+  color: #f0c28b;
+}
+
+/* Cadena de evidencia: hash y estado de firma de cada bloque. */
+.wonb-sections code {
+  font-size: 10px;
+  word-break: break-all;
+}
+.wonb-sections .verification-status {
+  display: inline-flex;
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .aoi-picker > span {
+    display: none;
+  }
+}
+
+/* Insignia de integridad en la cabecera: la propuesta de confianza, a la vista. */
+.integrity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.integrity-chip.integrity-ok {
+  color: #78ddad;
+  background: #14213ce6;
+}
+.integrity-chip.integrity-bad {
+  color: #f0c28b;
+  background: #14213ce6;
+}
+.app-footer {
+  font-size: 11px;
+}
+
+/* La leyenda tiene cuatro estados: sin barra de desplazamiento. */
+.map-legend {
+  max-height: none;
+  overflow: visible;
+}
+
+/* La escala no debe quedar debajo de la barra de observaciones. */
+.map-explorer .maplibregl-ctrl-bottom-left {
+  bottom: 92px;
+}
+
+@media (max-width: 1100px) {
+  .integrity-chip {
+    display: none;
+  }
+}
+
+/* La cabecera flota sobre el mapa: el contexto necesita fondo para leerse. */
+.header-context {
+  flex-wrap: nowrap;
+  background: rgba(20, 33, 60, 0.82);
+  padding: 7px 12px;
+  border-radius: 10px;
+}
+.header-context .subtitle {
+  white-space: nowrap;
+}
+.study-area-metadata {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* El detalle y el botón de volver no deben quedar debajo de la cabecera. */
+.evidence-details {
+  top: calc(var(--header-clearance, 84px) + 8px);
+}
+.back-map {
+  left: 88px;
+}
+
+/* Con una celda seleccionada, la ficha ocupa el lado derecho: la leyenda cede. */
+.map-explorer.has-selection .map-legend {
+  display: none;
+}
+
+/* Fechas reales del par de observaciones en la ficha. */
+.observation-pair {
+  margin: 12px 0 4px;
+  font-size: 11px;
+  color: var(--text-primary, #eef5ff);
+}
+.observation-pair span {
+  font-size: 9px;
+  letter-spacing: 0.4px;
+  color: var(--muted, #b2baa0);
+}
+
+/*
+ * Ficha de celda (panel derecho). El diseño la pensó para ids cortos de demo
+ * ("PIU-001"): con ids reales el título se partía y el contenido quedaba
+ * cortado. Más ancha, usa todo el alto disponible y lleva el porqué arriba.
+ */
+.evidence-card {
+  width: 384px;
+  max-height: calc(100% - var(--header-clearance, 94px) - 24px);
+}
+.evidence-card .evidence-identity h2 {
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.evidence-card .explanation p,
+.evidence-details .detail-section > p {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-primary, #eef5ff);
+}
+.evidence-card .expanded-metrics > div {
+  padding: 8px 10px;
+  gap: 4px;
+}
+.evidence-card .expanded-metrics dd {
+  font-size: 17px;
+}
+.evidence-card .expanded-metrics dd.text-metric {
+  font-size: 11px;
+}
+.evidence-card .provenance-mini {
+  color: #78ddad;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Esquema acoplado: cabecera, mapa, barra lateral y barra inferior ocupan
+ * su propio espacio. Nada flota sobre el mapa salvo sus controles.
+ * ─────────────────────────────────────────────────────────────────────── */
+.app-shell {
+  --header-clearance: 14px;
+}
+.app-header {
+  position: static;
+  pointer-events: auto;
+  background: var(--app-background, #14213c);
+  border-bottom: 1px solid var(--ui-border);
+  padding: 10px 16px;
+}
+.header-context {
+  background: transparent;
+  padding: 0;
+}
+.main-workspace {
+  display: flex;
+}
+.stage {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.stage.is-hidden {
+  display: none;
+}
+.map-explorer {
+  display: flex;
+  flex-direction: column;
+}
+.map-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.map-tools,
+.has-selection .map-tools {
+  right: 16px;
+  bottom: 16px;
+}
+.map-explorer .maplibregl-ctrl-bottom-left {
+  bottom: 8px;
+}
+
+/* Barra inferior: fechas y leyenda, en fila. */
+.map-dock {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--ui-border);
+  background: var(--app-background, #14213c);
+}
+.map-dock .observation-bar,
+.map-dock .map-legend,
+.map-explorer.has-selection .map-dock .map-legend {
+  position: static;
+  display: flex;
+  inset: auto;
+  transform: none;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  box-shadow: none;
+  background: var(--surface-raised, #263b5b);
+  border: 1px solid var(--ui-border);
+}
+.map-dock .observation-bar {
+  flex: 1 1 auto;
+  align-items: center;
+}
+.map-dock .map-legend {
+  flex: 0 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  overflow: visible;
+}
+.map-dock .change-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 11px;
+  color: var(--text-primary);
+}
+.map-dock .change-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.map-dock .change-legend i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.map-dock .map-legend p {
+  margin: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Barra lateral derecha. */
+.side-dock {
+  width: 400px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 18px 18px 24px;
+  background: var(--app-background, #14213c);
+  border-left: 1px solid var(--ui-border);
+  color: var(--text-primary);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sky) transparent;
+}
+.dock-intro h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+.dock-intro p {
+  margin: 8px 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.dock-counts {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.dock-counts li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dock-counts i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.dock-counts strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.dock-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dock-top .priority-row {
+  width: 100%;
+  text-align: left;
+  background: var(--surface-raised, #263b5b);
+  border: 1px solid var(--ui-border);
+}
+.dock-top .priority-row.selected {
+  border-color: var(--color-coral);
+  background: var(--selected-surface);
+}
+.dock-top .priority-row strong {
+  font-size: 14px;
+}
+.dock-top .priority-row small {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.dock-hint {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--ui-border);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.dock-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+/* La ficha y el detalle viven dentro de la barra lateral, sin flotar. */
+.side-dock .evidence-card,
+.side-dock .evidence-details {
+  position: static;
+  inset: auto;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+  margin-top: 16px;
+  padding: 0 14px 16px;
+  box-shadow: none;
+  background: var(--surface-raised, #263b5b);
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+}
+.side-dock .evidence-details {
+  margin-top: 0;
+}
+.side-dock .evidence-details h1 {
+  font-size: 18px;
+}
+.side-dock .evidence-identity h2 {
+  font-size: 19px;
+  color: var(--text-primary);
+}
+.cell-code {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+/* Mosaicos y separadores: solo la paleta del tema, sin los grises del CSS antiguo. */
+.side-dock .expanded-metrics > div {
+  background: rgba(20, 33, 60, 0.55);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  gap: 4px;
+}
+.side-dock .expanded-metrics dt {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+}
+.side-dock .expanded-metrics dd {
+  font-size: 18px;
+  color: var(--text-primary);
+}
+.side-dock .expanded-metrics dd.text-metric {
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.side-dock .detail-section,
+.side-dock .verification,
+.side-dock .evidence-top {
+  border-color: var(--ui-border);
+}
+.side-dock .section-caption {
+  color: var(--color-turquoise);
+}
+.side-dock .explanation p,
+.side-dock .detail-section > p,
+.side-dock .verification > p {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+.side-dock .wonb-sections h3 {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.side-dock .wonb-sections p {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.side-dock .wonb-sections svg {
+  color: var(--color-turquoise);
+}
+.side-dock .wonb-sections code {
+  color: var(--text-muted);
+}
+.side-dock .provenance-mini {
+  color: #78ddad;
+  font-size: 11.5px;
+}
+.side-dock .primary-button {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .main-workspace {
+    flex-direction: column;
+  }
+  .side-dock {
+    width: auto;
+    max-height: 46%;
+    border-left: 0;
+    border-top: 1px solid var(--ui-border);
+  }
+  .map-dock {
+    flex-direction: column;
+  }
+}
+
+/* Leyenda en una sola fila para que la barra inferior sea baja. */
+.map-dock .change-legend {
+  flex-direction: row;
+}
+.map-dock .observation-bar {
+  padding: 8px 14px;
+}
+
+/* Con una zona elegida, el resumen se compacta para que el porqué quede a la vista. */
+.side-dock.has-card .dock-intro p,
+.side-dock.has-card .dock-counts {
+  display: none;
+}
+.side-dock.has-card .dock-intro h2 {
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+.side-dock.has-card .dock-top {
+  flex-direction: row;
+}
+.side-dock.has-card .dock-top .priority-row {
+  flex: 1;
+  padding: 8px;
+  min-width: 0;
+}
+.side-dock.has-card .dock-top .priority-row small,
+.side-dock.has-card .dock-top .priority-arrow {
+  display: none;
+}
+
+/* Insignia de datos reales: texto oscuro sobre el fondo claro del diseño. */
+.data-badge.origin-nisar_real {
+  color: #0f5a43;
+  border-color: #78ddad;
+}
+
+/* Marcadores numerados centrados en su zona, sin la línea guía del diseño. */
+.cell-marker {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.cell-marker:before {
+  display: none;
+}
+
+/*
+ * Marcadores del mapa con las clases de priorities.css (Ximenacode): se conserva
+ * su borde turquesa y el doble borde del primer puesto, pero sobre fondo claro
+ * y en tamaño compacto para que el número se lea y no tape la zona.
+ */
+.map-explorer .cell-marker,
+.map-explorer .cell-marker.is-top-ten:not(.is-insufficient) {
+  min-width: 26px;
+  min-height: 0;
+  height: 26px;
+  padding: 0 7px;
+  justify-content: center;
+  background: var(--color-cream, #fff8ea);
+  color: #14213c;
+  border: 2px solid var(--color-turquoise, #76cfdf);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+.map-explorer .cell-marker.is-top-ten.is-first:not(.is-insufficient) {
+  border: 4px double #14213c;
+  height: 30px;
+  min-width: 30px;
+  font-size: 15px;
+}
+
+/* En modo compacto, el nombre de la zona no se parte y el número no crece. */
+.side-dock.has-card .dock-top .priority-row strong {
+  white-space: nowrap;
+}
+.side-dock.has-card .dock-top .priority-row .rank {
+  min-width: 28px;
+  min-height: 28px;
+  font-size: 14px;
+}

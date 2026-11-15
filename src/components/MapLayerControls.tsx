@@ -9,20 +9,20 @@ export interface VisibleLayers {
 const options = [
   {
     id: 'change',
-    label: 'Surface changes',
+    label: 'Cambios en superficie',
     description:
-      'Highlight changes: orange means increased backscatter; blue means decreased backscatter.',
+      'Muestra la capa de cambio del radar (diferencia entre las dos pasadas del satélite NISAR).',
   },
   {
     id: 'water',
-    label: 'Water context',
-    description: 'Show the illustrative river to help locate nearby cells.',
+    label: 'Caminos',
+    description: 'Muestra los caminos de OpenStreetMap incluidos en los datos.',
   },
   {
     id: 'grid',
-    label: 'Analysis grid',
+    label: 'Zonas de revisión',
     description:
-      'Show approximate 1 km cells. Select a labeled priority cell to see its evidence.',
+      'Muestra las zonas coloreadas según su lugar en el orden de revisión sugerido. Toca una zona para ver por qué.',
   },
 ] as const
 
@@ -52,19 +52,19 @@ export function MapLayerControls({
         aria-controls="map-layer-options"
       >
         <span>
-          <Layers3 size={15} /> Map layers
+          <Layers3 size={15} /> Capas del mapa
         </span>
         {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
       </button>
       {expanded && (
         <div className="layer-body" id="map-layer-options">
           <p className="layer-intro">
-            Choose what appears over the satellite map.
+            Elige qué se muestra sobre el mapa.
           </p>
           {compare && (
             <p className="comparison-help" role="status">
-              Comparing before and after observations. Exit comparison to adjust
-              surface changes.
+              Comparando las observaciones de antes y después. Sal de la
+              comparación para ajustar los cambios en superficie.
             </p>
           )}
           {options.map(({ id, label, description }) => {
@@ -94,7 +94,7 @@ export function MapLayerControls({
           })}
           <div className="change-opacity">
             <div className="opacity-row">
-              <label htmlFor="change-opacity">Change opacity</label>
+              <label htmlFor="change-opacity">Opacidad del cambio</label>
               <output htmlFor="change-opacity">{opacity}%</output>
             </div>
             <input
@@ -110,14 +110,14 @@ export function MapLayerControls({
             />
             <p id="change-opacity-help">
               {compare
-                ? 'Available outside comparison mode.'
+                ? 'Disponible fuera del modo de comparación.'
                 : !layers.change
-                  ? 'Turn on Surface changes to adjust their opacity.'
-                  : 'Lower it to see more satellite detail underneath.'}
+                  ? 'Activa Cambios en superficie para ajustar su opacidad.'
+                  : 'Bájala para ver mejor las zonas.'}
             </p>
           </div>
           <p className="fixture-note">
-            Demo overlays · Not live satellite measurements
+            Capas de los datos verificados · imagen fija, no en vivo
           </p>
         </div>
       )}

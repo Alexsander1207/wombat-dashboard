@@ -56,11 +56,11 @@ beforeAll(() => {
   globalThis.fetch = mockedFetch as typeof globalThis.fetch;
 });
 
-// Mock de MapView (sin WebGL)
-vi.mock("../src/components/MapView.tsx", () => ({
-  MapView: ({ bundle }: { bundle: LoadedBundle }) =>
+// Mock de MapExplorer (sin WebGL)
+vi.mock("../src/components/MapExplorer.tsx", () => ({
+  MapExplorer: ({ bundle }: { bundle: { aoiId: string } }) =>
     React.createElement("div", { "data-testid": "map-view" },
-      `Mapa: ${bundle.aoiId}/${bundle.bundleVersion}`),
+      `Mapa: ${bundle.aoiId}`),
 }));
 
 // Mock de loadAndVerify

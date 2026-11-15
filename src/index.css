@@ -1,29 +1,91 @@
-﻿@import './styles/tokens.css';
-@import './styles/header.css';
-@import './styles/navigation.css';
+/* Tokens y estilos de prioridad de Ximenacode (PR #6). Se cargan antes del
+   diseño para que sus modificadores is-top-ten / is-first / is-selected /
+   is-insufficient esten disponibles. Ver src/styles/priorities.md. */
+@import './styles/tokens.css';
 @import './styles/priorities.css';
 
-*, *::before, *::after { box-sizing: border-box; }
 :root {
-  font-family: var(--font-sans); font-size: var(--text-16); line-height: 1.5;
-  color-scheme: dark; color: var(--text-primary); background: var(--app-background);
-  font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
+  font-family: Inter, 'Segoe UI', Arial, sans-serif;
+  color: var(--text-primary, #eef5ff);
+  background: var(--app-background, #14213c);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 13px;
+  --panel: rgba(39, 54, 36, 0.94);
+  --border: rgba(213, 219, 169, 0.27);
+  --muted: #b2baa0;
+  --cream: #f2e6ba;
+  --teal: #008b82;
 }
-body { margin: 0; min-width: 320px; }
-button, select, input { font: inherit; }
-button, select { min-height: 44px; max-width: 100%; }
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+a,
+input {
+  font: inherit;
+}
 button {
-  padding: var(--space-8) var(--space-16); border: 1px solid var(--border-strong);
-  border-radius: var(--radius-6); background: var(--surface-raised); color: var(--text-primary); cursor: pointer;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  border-radius: 5px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
-button:hover { background: var(--hover-surface); border-color: var(--color-turquoise); }
-button:disabled { cursor: wait; opacity: .7; }
-a { color: var(--color-turquoise); text-underline-offset: 4px; }
-:where(button, select, input, a, summary):focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 4px; }
-h1, h2, p { overflow-wrap: anywhere; }
-h1 { font-size: var(--text-24); line-height: 1.25; }
-h2 { font-size: var(--text-20); line-height: 1.4; }
-[hidden] { display: none !important; }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+button:hover {
+  background: var(--hover-surface, #263a59);
+  border-color: var(--color-turquoise, #76cfdf);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--focus-ring, #76cfdf);
+  outline-offset: 4px;
+}
+a {
+  color: inherit;
+}
+button svg {
+  flex-shrink: 0;
+}
+p {
+  line-height: 1.65;
+  margin: 0;
+}
+h1,
+h2,
+h3 {
+  margin: 0;
+}
+h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+input[type='range'] {
+  accent-color: var(--color-turquoise, #76cfdf);
+  cursor: pointer;
+}
+input[type='checkbox'] {
+  accent-color: var(--teal);
+}
+::selection {
+  background: var(--color-navy, #214b7d);
+  color: white;
 }
