@@ -339,4 +339,85 @@ describe("(g) rendimiento de carga", () => {
     expect(report.ok).toBe(false);
     expect(report.failures).toHaveLength(30);
   });
+
+  it("informa el avance una vez por archivo, también por los que fallan", async () => {
+    const files = Array.from({ length: 5 }, (_, i) => ({ path: `f-${i}.bin`, sha256: "x" }));
+    const seen: [number, number][] = [];
+    await verifyFileHashes(
+      {
+        contract_version: "1.0.0",
+        bundle_version: "test",
+        aoi_id: "test",
+        data_origin: "test",
+        generated_at: "2026-01-01T00:00:00Z",
+        core_commit: "test",
+        files,
+      },
+      async (path) => {
+        if (path === "f-2.bin") throw new Error("404");
+        return new Uint8Array([1]);
+      },
+      2,
+      (done, total) => seen.push([done, total]),
+    );
+
+    expect(seen).toEqual([[1, 5], [2, 5], [3, 5], [4, 5], [5, 5]]);
+  });
+
+  it("loadAndVerify avisa el avance de archivos y luego el de firmas", async () => {
+    const stages: { stage: string; done: number; total: number }[] = [];
+    const bundle = await loadAndVerify(
+      BUNDLE_DIR,
+      TRUSTED_ISSUERS,
+      makeReadBytes(BUNDLE_DIR),
+      undefined,
+      (p) => stages.push(p),
+    );
+    const total = bundle.verification.filesChecked;
+
+    expect(stages[0]).toEqual({ stage: "files", done: 0, total, fraction: 0 });
+    expect(stages.filter((p) => p.stage === "files").at(-1)).toEqual({ stage: "files", done: total, total, fraction: 1 });
+    expect(stages.at(-1)).toEqual({ stage: "signatures", done: total, total, fraction: 1 });
+    // Ni el contador ni la barra retroceden.
+    const dones = stages.map((p) => p.done);
+    expect(dones).toEqual([...dones].sort((a, b) => a - b));
+    const fractions = stages.map((p) => p.fraction);
+    expect(fractions).toEqual([...fractions].sort((a, b) => a - b));
+  });
+
+  it("con fetch real lee por partes, mide bytes y verifica los mismos bytes", async () => {
+    // Cada archivo llega en trozos de 700 bytes, como en una red real; los
+    // PNG sin compresión anuncian su tamaño, el resto no (como Vercel con br).
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL) => {
+      const path = String(url).slice(BUNDLE_DIR.length + 1);
+      const bytes = new Uint8Array(await readFile(join(BUNDLE_DIR, path)));
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (let i = 0; i < bytes.length; i += 700) controller.enqueue(bytes.slice(i, i + 700));
+          controller.close();
+        },
+      });
+      const headers = path.endsWith(".png")
+        ? { "content-length": String(bytes.length) }
+        : { "content-encoding": "br" };
+      return new Response(body, { status: 200, headers });
+    }) as typeof fetch;
+
+    try {
+      const fractions: number[] = [];
+      const bundle = await loadAndVerify(BUNDLE_DIR, TRUSTED_ISSUERS, undefined, undefined, (p) =>
+        fractions.push(p.fraction),
+      );
+
+      expect(bundle.verification.filesOk).toBe(true);
+      expect(bundle.verification.blocksOk).toBe(true);
+      // Hubo avance en medio de los archivos, no solo al terminar cada uno.
+      expect(fractions.length).toBeGreaterThan(bundle.verification.filesChecked * 2);
+      expect(fractions).toEqual([...fractions].sort((a, b) => a - b));
+      expect(fractions.at(-1)).toBe(1);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
 });

@@ -12,7 +12,9 @@ import {
   loadAndVerify,
   releaseBundle,
   type LoadedBundle,
+  type LoadProgress,
 } from './bundle/contract.ts'
+import { LoadingProgress } from './components/LoadingProgress.tsx'
 import {
   TOP_COUNT,
   toExplorer,
@@ -96,6 +98,7 @@ export default function App() {
   const [bundle, setBundle] = useState<LoadedBundle | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<LoadProgress | null>(null)
   const [selectedBundle, setSelectedBundle] = useState<BundleEntry | null>(null)
   const [view, setView] = useState<View>('map')
   const [selected, setSelected] = useState<ExplorerCell | null>(null)
@@ -140,6 +143,7 @@ export default function App() {
     let cancelled = false
     setLoading(true)
     setError(null)
+    setProgress(null)
     setSelected(null)
     // Lo que se eligió para un área no vale para la siguiente.
     setCompare(false)
@@ -153,7 +157,20 @@ export default function App() {
       roles: PINNED_ROLES,
     }))
 
-    loadAndVerify(base, issuers, undefined, controller.signal)
+    // Cientos de archivos terminan en ráfaga: la barra se actualiza como mucho
+    // una vez por cuadro, con el último avance, no una vez por archivo.
+    let latest: LoadProgress | null = null
+    let frame = 0
+    const onProgress = (next: LoadProgress) => {
+      latest = next
+      if (frame) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        if (!cancelled) setProgress(latest)
+      })
+    }
+
+    loadAndVerify(base, issuers, undefined, controller.signal, onProgress)
       .then((b) => {
         if (!cancelled && !controller.signal.aborted) {
           setBundle(b)
@@ -171,6 +188,7 @@ export default function App() {
 
     return () => {
       cancelled = true
+      if (frame) cancelAnimationFrame(frame)
       controller.abort()
     }
   }, [selectedBundle, config])
@@ -292,16 +310,8 @@ export default function App() {
         <main
           className={`main-workspace ${view === 'evidence' ? 'detail-view' : ''}`}
         >
-          {view !== 'methodology' && !config && !error && (
-            <section className="panel evidence-empty" role="status">
-              <p>Cargando configuración…</p>
-            </section>
-          )}
-          {view !== 'methodology' && config && loading && !error && (
-            <section className="panel evidence-empty" role="status">
-              <ShieldCheck size={25} />
-              <p>Verificando y cargando los datos…</p>
-            </section>
+          {view !== 'methodology' && loading && !error && (
+            <LoadingProgress progress={progress} />
           )}
           {view !== 'methodology' && error && (
             <section className="panel evidence-empty" role="alert">
