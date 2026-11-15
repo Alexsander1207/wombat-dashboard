@@ -114,17 +114,13 @@ export function LiveFeed({
         </p>
       ) : (
         <p className="explorer-summary-meta">
-          Signed record from this area&apos;s data, verified in this browser.
+          Signed record, verified in this browser.
+          {state.status === 'online' && ' No newer event on the network yet.'}
         </p>
       )}
 
       {state.status === 'offline' && (
         <p className="explorer-summary-meta">{OFFLINE_DETAIL}</p>
-      )}
-      {state.status === 'online' && !latest && (
-        <p className="explorer-summary-meta">
-          No newer event on the network for this area yet.
-        </p>
       )}
 
       {earlier.length > 0 && (
