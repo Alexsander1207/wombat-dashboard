@@ -1,4 +1,10 @@
-﻿:root {
+/* Tokens y estilos de prioridad de Ximenacode (PR #6). Se cargan antes del
+   diseño para que sus modificadores is-top-ten / is-first / is-selected /
+   is-insufficient esten disponibles. Ver src/styles/priorities.md. */
+@import './styles/tokens.css';
+@import './styles/priorities.css';
+
+:root {
   font-family: Inter, 'Segoe UI', Arial, sans-serif;
   color: var(--text-primary, #eef5ff);
   background: var(--app-background, #14213c);

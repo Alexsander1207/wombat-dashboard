@@ -522,3 +522,39 @@
 .cell-marker:before {
   display: none;
 }
+
+/*
+ * Marcadores del mapa con las clases de priorities.css (Ximenacode): se conserva
+ * su borde turquesa y el doble borde del primer puesto, pero sobre fondo claro
+ * y en tamaño compacto para que el número se lea y no tape la zona.
+ */
+.map-explorer .cell-marker,
+.map-explorer .cell-marker.is-top-ten:not(.is-insufficient) {
+  min-width: 26px;
+  min-height: 0;
+  height: 26px;
+  padding: 0 7px;
+  justify-content: center;
+  background: var(--color-cream, #fff8ea);
+  color: #14213c;
+  border: 2px solid var(--color-turquoise, #76cfdf);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+.map-explorer .cell-marker.is-top-ten.is-first:not(.is-insufficient) {
+  border: 4px double #14213c;
+  height: 30px;
+  min-width: 30px;
+  font-size: 15px;
+}
+
+/* En modo compacto, el nombre de la zona no se parte y el número no crece. */
+.side-dock.has-card .dock-top .priority-row strong {
+  white-space: nowrap;
+}
+.side-dock.has-card .dock-top .priority-row .rank {
+  min-width: 28px;
+  min-height: 28px;
+  font-size: 14px;
+}

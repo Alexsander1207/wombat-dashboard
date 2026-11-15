@@ -1,0 +1,20 @@
+﻿/* Mireya's ocean twilight palette, without changing scientific raster colors. */
+:root {
+  --font-sans: 'Segoe UI', system-ui, Arial, sans-serif;
+  --text-12: 12px; --text-14: 14px; --text-16: 16px; --text-20: 20px; --text-24: 24px;
+  --space-4: 4px; --space-8: 8px; --space-12: 12px; --space-16: 16px; --space-24: 24px; --space-32: 32px;
+  --radius-6: 6px; --radius-12: 12px;
+  --app-background: #10233f; --color-navy: #10233f;
+  --panel-background: #182743; --floating-background: #1d2c49; --surface-raised: #263b5b; --surface-soft: #20354f;
+  --color-turquoise: #76cfdf; --color-cream: #fff8ea; --color-coral: #e97873; --color-sky: #99bbed;
+  --text-primary: #eef5ff; --text-secondary: #ceddec; --text-muted: #afc3d7;
+  --ui-border: #58718d; --border-strong: #76a1b5; --hover-surface: #304b68;
+  --focus-ring: #76cfdf; --on-active: #10233f; --on-accent: #10233f;
+  --warning-surface: #3c3023; --warning-text: #ffe0a6;
+  --status-high: #d8c4ff; --status-medium: #b4bfff; --status-low: #a4c8eb; --status-insufficient: #d2d8e0;
+  --status-failed: #ffc3c3; --status-verified: #76cfdf;
+  --radius-panel: var(--radius-12); --radius-control: var(--radius-6);
+  --shadow-panel: 0 8px 24px #06162b40; --selected-surface: #3b3453;
+  --panel: var(--panel-background); --border: var(--ui-border); --muted: var(--text-muted);
+  --cream: var(--color-cream); --teal: var(--color-turquoise);
+}

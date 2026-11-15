@@ -311,7 +311,8 @@ export function MapExplorer({
           if (!before)
             for (const cell of topCells) {
               const el = document.createElement('button')
-              el.className = 'cell-marker'
+              // Clases de src/styles/priorities.css (Ximenacode).
+              el.className = `cell-marker is-top-ten ${cell.rank === 1 ? 'is-first' : ''}`
               el.textContent = String(cell.rank)
               el.setAttribute(
                 'aria-label',

@@ -375,8 +375,9 @@ export default function App() {
                       <div className="dock-top">
                         {explorer.ranked.slice(0, TOP_COUNT).map((cell) => (
                           <button
-                            className={`priority-row ${selected?.id === cell.id ? 'selected' : ''}`}
+                            className={`priority-row is-top-ten ${cell.rank === 1 ? 'is-first' : ''} ${selected?.id === cell.id ? 'selected is-selected' : ''}`}
                             key={cell.id}
+                            aria-pressed={selected?.id === cell.id}
                             onClick={() => setSelected(cell)}
                           >
                             <span className={`rank rank-${cell.rank}`}>
