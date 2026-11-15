@@ -6,7 +6,7 @@
  * columna del pie, el indicador de estado y la insignia de procedencia.
  */
 .explorer-app .explorer-integrity.has-live {
-  width: min(900px, calc(100% - 300px));
+  width: min(900px, calc(100% - 370px));
   grid-template-columns: 1.12fr 1fr 1.25fr;
 }
 .live-head {
@@ -77,14 +77,14 @@
 .explorer-integrity .live-foot {
   margin-top: 4px;
 }
-@media (max-width: 1150px) {
-  .explorer-app .explorer-integrity.has-live {
-    grid-template-columns: 1fr 1fr;
-  }
-}
+/* En móvil el pie va debajo del mapa: dos columnas y "Live" a todo el ancho. */
 @media (max-width: 760px) {
   .explorer-app .explorer-integrity.has-live {
     width: auto;
+    grid-template-columns: 1fr 1fr;
+  }
+  .explorer-integrity .live-feed {
+    grid-column: 1 / -1;
   }
 }
 @media (max-width: 380px) {

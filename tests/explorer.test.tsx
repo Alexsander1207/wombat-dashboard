@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import { loadAndVerify, releaseBundle, type LoadedBundle } from '../src/bundle/contract.ts';
-import { toExplorer } from '../src/adapters/toExplorer.ts';
+import { toExplorer, type ExplorerCell, type ExplorerData } from '../src/adapters/toExplorer.ts';
 import { EvidenceCard } from '../src/components/Evidence.tsx';
+import { OceanEvidence } from '../src/components/OceanEvidence.tsx';
 import { TopTen } from '../src/components/MapLayerControls.tsx';
 
 const { maps, FakeMap } = vi.hoisted(() => {
@@ -15,6 +16,7 @@ class FakeMap {
   layers = new Map<string, unknown>();
   handlers = new Map<string, (...args: unknown[]) => void>();
   fitBounds = vi.fn();
+  queryRenderedFeatures = vi.fn(() => [] as { properties: { id: string } }[]);
   setFilter = vi.fn();
   setPaintProperty = vi.fn();
   setLayoutProperty = vi.fn();
@@ -50,7 +52,10 @@ vi.mock('maplibre-gl', () => ({
     }
   },
   NavigationControl: class {}, ScaleControl: class {},
-  LngLatBounds: class { extend() { return this; } },
+  LngLatBounds: class {
+    points: number[][] = [];
+    extend(point: number[]) { this.points.push(point); return this; }
+  },
   Marker: class {
     element: HTMLElement;
     constructor({ element }: { element: HTMLElement }) { this.element = element; }
@@ -63,6 +68,7 @@ import { MapExplorer } from '../src/components/MapExplorer.tsx';
 let thailand: LoadedBundle;
 let piura: LoadedBundle;
 beforeAll(async () => {
+  vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
   URL.createObjectURL = vi.fn(() => 'blob:verified-test');
   URL.revokeObjectURL = vi.fn();
   const config = JSON.parse(await readFile('dashboard.config.json', 'utf8')) as { bundles: { aoi: string; version: string; issuers: string[] }[] };
@@ -97,7 +103,8 @@ describe('verified Explorer adapter', () => {
       expect(cell.geometry).toBe(source.geometry);
       expect(cell.metrics).toEqual(source.metrics);
       expect(cell.componentsBp).toEqual(source.componentsBp);
-      expect(cell.explanation).toEqual(source.explanation);
+      expect(cell.signedExplanation).toBe(source.explanation);
+      expect(cell.explanation).toBe(source.explanation.join(" "));
     });
     expect(data.overlays).toBe(thailand.overlays);
     expect(data.roadsGeoJson).toBe(thailand.roadsGeoJson);
@@ -126,7 +133,7 @@ describe('verified Explorer adapter', () => {
     expect(cell.rank).toBeNull(); expect(cell.score).toBeNull(); expect(cell.scoreBp).toBeNull();
     const inconsistent = toExplorer({ ...piura, cells: [{ ...source, scoreBp: 1234, rank: 9 }] }).cells[0];
     expect(inconsistent.rank).toBeNull(); expect(inconsistent.score).toBeNull(); expect(inconsistent.scoreBp).toBe(1234);
-    render(<EvidenceCard cell={cell} bundle={toExplorer(piura)} onClose={() => {}} />);
+    render(<EvidenceCard cell={cell} before={piura.t1} after={piura.t2} onExpand={() => {}} onClose={() => {}} />);
     expect(screen.getByText('Not ranked: fewer than 60% of pixels are usable')).toBeInTheDocument();
     expect(screen.queryByText('Signed score')).not.toBeInTheDocument();
   });
@@ -153,63 +160,73 @@ describe('verified Explorer adapter', () => {
     const data = toExplorer(piura);
     const cell = data.cells.find(c => c.rank === 1)!;
     const second = data.cells.find(c => c.rank === 2)!;
-    const view = render(<EvidenceCard cell={cell} bundle={data} onClose={() => {}} />);
-    expect(screen.getByRole('heading', { name: `Cell ${cell.cellId}` })).toBeInTheDocument();
+    const view = render(<EvidenceCard cell={cell} before={data.before.date} after={data.after.date} onExpand={() => {}} onClose={() => {}} />);
+    expect(screen.getByRole('heading', { name: cell.label })).toBeInTheDocument();
     expect(screen.getByText('76.36 % (7636 bp)')).toBeInTheDocument();
-    for (const text of cell.explanation) expect(screen.getByText(text)).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Score parts and weights'));
-    expect(screen.getByRole('cell', { name: '0.45' })).toBeInTheDocument();
-    view.rerender(<EvidenceCard cell={second} bundle={data} onClose={() => {}} />);
-    expect(screen.getByRole('heading', { name: `Cell ${second.cellId}` })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: `Cell ${cell.cellId}` })).not.toBeInTheDocument();
+    for (const text of cell.signedExplanation) expect(screen.getByText(text)).toBeInTheDocument();
+    expect(screen.getByText('Change component (weight 0.45)')).toBeInTheDocument();
+    expect(screen.getByText('OPERA component (weight 0.35)')).toBeInTheDocument();
+    expect(screen.getByText('Roads component (weight 0.20)')).toBeInTheDocument();
+    for (const value of Object.values(cell.componentsBp))
+      expect(screen.getAllByText(new RegExp(`\\(${value} bp\\)`)).length).toBeGreaterThan(0);
+    view.rerender(<EvidenceCard cell={second} before={data.before.date} after={data.after.date} onExpand={() => {}} onClose={() => {}} />);
+    expect(screen.getByRole('heading', { name: second.label })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: cell.label })).not.toBeInTheDocument();
   });
-  it('wires verified MapLibre assets, map clicks, Top 10 selection, focus and raster controls', async () => {
+  it('wires verified assets, map clicks, Top 10 selection, geometry focus and controls', async () => {
     const data = toExplorer(thailand);
-    function Harness() {
-      const [selected, setSelected] = React.useState<string | null>(null);
-      const [overlay, setOverlay] = React.useState<'delta' | 't1' | 't2'>('delta');
-      return <><button onClick={() => setOverlay('t1')}>T1 test</button><MapExplorer bundle={data} overlay={overlay} onOverlayChange={setOverlay} selectedCellId={selected} onSelectCell={setSelected} /></>;
-    }
-    render(<Harness />);
+    const firstMap = maps.length;
+    render(<MapHarness data={data} />);
     await waitFor(() => expect(maps.at(-1)?.getLayer('selected')).toBeTruthy());
-    const map = maps.at(-2)!;
+    expect(maps).toHaveLength(firstMap + 1);
+    const map = maps.at(-1)!;
     expect(map.sources.get('delta')).toEqual({ type: 'image', url: thailand.overlays.delta, coordinates: thailand.overlays.bounds });
-    const geo = map.sources.get('cells') as { data: { features: { geometry: unknown }[] } };
-    expect(geo.data.features[0].geometry).toEqual(thailand.cells[0].geometry);
-    expect(map.sources.get('roads')).toEqual({ type: 'geojson', data: thailand.roadsGeoJson });
-    fireEvent.click(within(screen.getByRole('region', { name: 'Top 10' })).getAllByRole('button')[0]);
-    const first = data.cells.find(c => c.rank === 1)!;
-    expect(screen.getByRole('heading', { name: `Cell ${first.cellId}` })).toBeInTheDocument();
-    expect(map.fitBounds).toHaveBeenCalled();
-    const second = data.cells.find(c => c.rank === 2)!;
-    act(() => map.handlers.get('click:cells-fill')?.({ features: [{ properties: { cell_id: second.cellId } }] }));
-    expect(screen.getByRole('heading', { name: `Cell ${second.cellId}` })).toBeInTheDocument();
-    fireEvent.click(screen.getByText('T1 test'));
-    expect(map.setPaintProperty).toHaveBeenCalledWith('t1', 'raster-opacity', 0.8);
-    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Layers' }));
-    fireEvent.change(screen.getByRole('slider', { name: 'Image opacity' }), { target: { value: '45' } });
+    const geo = map.sources.get('grid') as { data: { features: { geometry: unknown }[] } };
+    expect(geo.data.features).toHaveLength(600);
+    geo.data.features.forEach((feature, i) => expect(feature.geometry).toBe(thailand.cells[i].geometry));
+    expect(map.sources.get('roads')).toEqual({ type: 'geojson', data: thailand.roadsGeoJson, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>' });
+    const first = data.ranked[0];
+    fireEvent.click(screen.getByRole('button', { name: `Select rank 1: ${first.id}` }));
+    expect(screen.getByRole('heading', { name: `Cell ${first.id}` })).toBeVisible();
+    expect(map.fitBounds).toHaveBeenLastCalledWith({ points: first.geometry!.coordinates.flat() }, { padding: 36, maxZoom: 15 });
+    expect(map.setFilter).toHaveBeenCalledWith('selected', ['==', ['get', 'id'], first.id]);
+    const second = data.ranked[1];
+    map.queryRenderedFeatures.mockReturnValue([{ properties: { id: second.id } }]);
+    act(() => map.handlers.get('click')?.({ point: { x: 10, y: 10 } }));
+    expect(map.queryRenderedFeatures).toHaveBeenCalledWith({ x: 10, y: 10 }, { layers: ['hit-area'] });
+    expect(screen.getByRole('heading', { name: `Cell ${second.id}` })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Open layers test' }));
+    fireEvent.change(screen.getByRole('slider', { name: 'Change opacity' }), { target: { value: '45' } });
+    expect(map.setPaintProperty).toHaveBeenCalledWith('change', 'raster-opacity', 0.45 * 0.8);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Overlay' }), { target: { value: 't1' } });
     expect(map.setPaintProperty).toHaveBeenCalledWith('t1', 'raster-opacity', 0.45);
+    expect(map.setPaintProperty).toHaveBeenCalledWith('change', 'raster-opacity', 0);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Overlay' }), { target: { value: 't2' } });
+    expect(map.setPaintProperty).toHaveBeenCalledWith('t2', 'raster-opacity', 0.45);
     fireEvent.click(screen.getByRole('checkbox', { name: /OSM roads/ }));
-    expect(map.setLayoutProperty).toHaveBeenCalledWith('roads', 'visibility', 'none');
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('water', 'visibility', 'none');
     fireEvent.click(screen.getByRole('checkbox', { name: /Cell outlines/ }));
     expect(map.setLayoutProperty).toHaveBeenCalledWith('grid', 'visibility', 'none');
-    expect(map.setPaintProperty).toHaveBeenCalledWith('cells-fill', 'fill-opacity', 0);
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('grid-fill', 'visibility', 'none');
+    expect(map.getLayer('hit-area')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
     fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
-    expect(map.zoomIn).toHaveBeenCalled();
-    expect(map.zoomOut).toHaveBeenCalled();
+    expect(map.zoomIn).toHaveBeenCalledOnce();
+    expect(map.zoomOut).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole('button', { name: 'Show whole area' }));
-    expect(map.fitBounds).toHaveBeenLastCalledWith([[data.boundary[0], data.boundary[1]], [data.boundary[2], data.boundary[3]]], { padding: 56 });
+    expect(map.fitBounds).toHaveBeenLastCalledWith([[data.boundary[0], data.boundary[1]], [data.boundary[2], data.boundary[3]]], { padding: 36, bearing: 0, pitch: 0 });
   });
-  it('compares the verified t1/t2 rasters, synchronizes cameras and supports the keyboard divider', async () => {
+  it('creates comparison lazily, uses verified rasters, syncs both cameras and supports keyboard and exit', async () => {
     const data = toExplorer(thailand);
-    render(<MapExplorer bundle={data} overlay="delta" onOverlayChange={() => {}} selectedCellId={null} onSelectCell={() => {}} />);
+    const firstMap = maps.length;
+    render(<MapHarness data={data} />);
+    await waitFor(() => expect(maps.at(-1)?.getLayer('selected')).toBeTruthy());
+    expect(maps).toHaveLength(firstMap + 1);
+    fireEvent.click(screen.getByRole('button', { name: 'Compare observations' }));
     await waitFor(() => expect(maps.at(-1)?.getLayer('selected')).toBeTruthy());
     const [base, before] = maps.slice(-2);
-    fireEvent.click(screen.getByRole('button', { name: 'Compare observations' }));
-    expect(base.setPaintProperty).toHaveBeenCalledWith('t2', 'raster-opacity', 0.8);
-    expect(before.setPaintProperty).toHaveBeenCalledWith('t1', 'raster-opacity', 0.8);
+    expect(base.setPaintProperty).toHaveBeenCalledWith('t2', 'raster-opacity', 0.85);
+    expect(before.setPaintProperty).toHaveBeenCalledWith('t1', 'raster-opacity', 0.85);
     expect(before.sources.get('t1')).toEqual({ type: 'image', url: data.overlays.t1, coordinates: data.overlays.bounds });
     const divider = screen.getByRole('slider', { name: 'Before/after divider' });
     fireEvent.keyDown(divider, { key: 'ArrowRight' });
@@ -218,43 +235,134 @@ describe('verified Explorer adapter', () => {
     expect(divider).toHaveAttribute('aria-valuenow', '90');
     act(() => base.handlers.get('move')?.());
     expect(before.jumpTo).toHaveBeenCalledWith({ center: base.getCenter(), zoom: base.getZoom(), bearing: 0, pitch: 0 });
+    act(() => before.handlers.get('move')?.());
+    expect(base.jumpTo).toHaveBeenCalledWith({ center: before.getCenter(), zoom: before.getZoom(), bearing: 0, pitch: 0 });
     fireEvent.click(screen.getByRole('button', { name: 'Stop comparing' }));
     expect(screen.queryByRole('slider', { name: 'Before/after divider' })).not.toBeInTheDocument();
-    expect(base.setPaintProperty).toHaveBeenLastCalledWith('cells-fill', 'fill-opacity', expect.any(Array));
+    await waitFor(() => expect(maps.at(-1)?.setPaintProperty).toHaveBeenCalledWith('grid-fill', 'fill-opacity', expect.any(Array)));
   });
-  it('disables comparison when signed dates are invalid or observations are incompatible', () => {
+  it('disables comparison for invalid dates, incompatible observations or missing rasters', () => {
     const data = toExplorer(thailand);
-    const view = render(<MapExplorer bundle={{ ...data, t1: 'invalid' }} overlay="delta" onOverlayChange={() => {}} selectedCellId={null} onSelectCell={() => {}} />);
+    const view = render(<MapHarness data={{ ...data, before: { ...data.before, date: 'invalid' } }} />);
     expect(screen.getByRole('button', { name: 'Compare observations' })).toBeDisabled();
-    view.rerender(<MapExplorer bundle={{ ...data, compatible: false }} overlay="delta" onOverlayChange={() => {}} selectedCellId={null} onSelectCell={() => {}} />);
+    view.rerender(<MapHarness data={{ ...data, compatible: false }} />);
+    expect(screen.getByRole('button', { name: 'Compare observations' })).toBeDisabled();
+    view.rerender(<MapHarness data={{ ...data, overlays: { ...data.overlays, t1: '' } }} />);
     expect(screen.getByRole('button', { name: 'Compare observations' })).toBeDisabled();
   });
-  it('fails only the external basemap on tile errors and keeps original verified sources', async () => {
+  it('loads local verified sources independently of external OSM tiles, keeping priorities above roads', async () => {
     const data = toExplorer(thailand);
-    const onGuide = vi.fn();
-    render(<MapExplorer bundle={data} overlay="delta" onOverlayChange={() => {}} selectedCellId={null} onSelectCell={() => {}} onGuide={onGuide} />);
+    render(<MapHarness data={data} />);
     await waitFor(() => expect(maps.at(-1)?.getLayer('selected')).toBeTruthy());
-    const [base, before] = maps.slice(-2);
+    const base = maps.at(-1)!;
+    expect(base.sources.get('basemap')).toMatchObject({ tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>' });
     act(() => base.handlers.get('error')?.({ sourceId: 'satellite', error: new Error('tile offline') }));
-    expect(screen.getByText(/Satellite background unavailable/)).toBeVisible();
     expect(base.setLayoutProperty).toHaveBeenCalledWith('satellite', 'visibility', 'none');
-    expect(before.setLayoutProperty).toHaveBeenCalledWith('satellite', 'visibility', 'none');
-    const geo = base.sources.get('cells') as { data: { features: { geometry: unknown }[] } };
+    expect(base.setLayoutProperty).toHaveBeenCalledWith('basemap', 'visibility', 'visible');
+    expect(screen.getByText(/Satellite background unavailable/)).toBeVisible();
+    // No external tile load is delivered by this mock; all local sources still load.
+    const geo = base.sources.get('grid') as { data: { features: { geometry: unknown }[] } };
     expect(geo.data.features).toHaveLength(600);
     expect(geo.data.features[0].geometry).toBe(data.cells[0].geometry);
-    expect(base.layers.get('roads')).toMatchObject({ paint: { 'line-opacity': 0.4 } });
-    expect([...base.layers.keys()].indexOf('roads')).toBeLessThan([...base.layers.keys()].indexOf('top-ten'));
-    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Guide' }));
-    expect(onGuide).toHaveBeenCalledOnce();
+    expect(base.layers.get('water')).toMatchObject({ source: 'roads', paint: { 'line-opacity': 0.45, 'line-width': 0.7 } });
+    expect([...base.layers.keys()].indexOf('water')).toBeLessThan([...base.layers.keys()].indexOf('priority'));
+    expect(base.layers.get('priority')).toMatchObject({ filter: ['in', ['get', 'id'], ['literal', data.ranked.slice(0, 10).map(c => c.id)]] });
   });
   it('labels signed road lengths as cell metrics and keeps exact metres visible', () => {
     const data = toExplorer(piura);
     const cell = data.cells.find(c => c.status === 'insufficient_quality')!;
-    render(<EvidenceCard cell={cell} bundle={data} onClose={() => {}} />);
-    fireEvent.click(screen.getByText('Cell details'));
+    render(<EvidenceCard cell={cell} before={data.before.date} after={data.after.date} onExpand={() => {}} onClose={() => {}} />);
     expect(screen.getByText('Total roads in this cell')).toBeVisible();
     expect(screen.getByText('800 m (0.8 km)')).toBeVisible();
     expect(screen.getByText(/These road lengths belong to this cell/)).toBeVisible();
   });
+  it('offers all 600 signed cells in Evidence and synchronizes dropdown, map and Top 10 selections', async () => {
+    const data = toExplorer(thailand);
+    render(<MapHarness data={data} />);
+    await waitFor(() => expect(maps.at(-1)?.getLayer('selected')).toBeTruthy());
+    const map = maps.at(-1)!;
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Evidence' }));
+    expect(screen.getByText('Pick a cell on the map or find its ID to see its evidence.')).toBeVisible();
+    const picker = screen.getByRole('combobox', { name: 'Choose a cell' });
+    const options = within(picker).getAllByRole('option');
+    expect(options).toHaveLength(601);
+    data.cells.forEach((cell, index) => {
+      expect(options[index + 1]).toHaveValue(cell.cellId);
+      expect(options[index + 1]).toHaveTextContent(`${cell.rank === null ? 'Not ranked' : `#${cell.rank}`} · ${cell.cellId}`);
+    });
+    const first = data.ranked[0];
+    fireEvent.change(picker, { target: { value: first.cellId } });
+    const evidence = screen.getByRole('region', { name: `Evidence for ${first.cellId}` });
+    expect(within(evidence).getByRole('heading', { name: `Cell ${first.cellId}` })).toBeVisible();
+    expect(within(evidence).getByRole('combobox', { name: 'Evidence cell' })).toHaveValue(first.cellId);
+    expect(within(evidence).getByText('Signed score').nextElementSibling).toHaveTextContent(`${first.scoreBp} bp`);
+    expect(map.fitBounds).toHaveBeenLastCalledWith({ points: first.geometry!.coordinates.flat() }, { padding: 36, maxZoom: 15 });
+
+    const quality = data.cells.find(cell => cell.status === 'insufficient_quality')!;
+    fireEvent.change(screen.getByRole('combobox', { name: 'Evidence cell' }), { target: { value: quality.cellId } });
+    const qualityEvidence = screen.getByRole('region', { name: `Evidence for ${quality.cellId}` });
+    expect(within(qualityEvidence).getByRole('combobox', { name: 'Evidence cell' })).toHaveValue(quality.cellId);
+    expect(within(qualityEvidence).getByText('Not ranked: fewer than 60% of pixels are usable')).toBeVisible();
+    expect(within(qualityEvidence).queryByText('Signed score')).not.toBeInTheDocument();
+    expect(map.setFilter).toHaveBeenCalledWith('selected', ['==', ['get', 'id'], quality.cellId]);
+    expect(map.fitBounds).toHaveBeenLastCalledWith({ points: quality.geometry!.coordinates.flat() }, { padding: 36, maxZoom: 15 });
+
+    const second = data.ranked[1];
+    map.queryRenderedFeatures.mockReturnValue([{ properties: { id: second.cellId } }]);
+    act(() => map.handlers.get('click')?.({ point: { x: 10, y: 10 } }));
+    expect(screen.getByRole('combobox', { name: 'Evidence cell' })).toHaveValue(second.cellId);
+    expect(screen.getByRole('heading', { name: `Cell ${second.cellId}` })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Top 10' }));
+    const third = data.ranked[2];
+    fireEvent.click(within(screen.getByRole('region', { name: 'Top 10' })).getByRole('button', { name: `Select rank ${third.rank}: ${third.cellId}` }));
+    expect(screen.getByRole('combobox', { name: 'Evidence cell' })).toHaveValue(third.cellId);
+    expect(screen.getByRole('combobox', { name: 'Choose a cell' })).toHaveValue(third.cellId);
+    expect(screen.getByRole('heading', { name: `Cell ${third.cellId}` })).toBeVisible();
+    expect(map.fitBounds).toHaveBeenLastCalledWith({ points: third.geometry!.coordinates.flat() }, { padding: 36, maxZoom: 15 });
+  });
+  it('restores compact Ocean Evidence without losing signed explanations, components or provenance', () => {
+    const data = toExplorer(thailand);
+    const first = data.ranked[0];
+    const second = data.ranked[1];
+    const props = { bundle: data, onClose: vi.fn(), onSelect: vi.fn() };
+    const view = render(<OceanEvidence {...props} cell={first} />);
+    expect(screen.getByRole('heading', { name: `Cell ${first.cellId}` })).toBeVisible();
+    expect(screen.getByText(`${(first.scoreBp! / 100).toFixed(2)} % (${first.scoreBp} bp)`)).toBeVisible();
+    fireEvent.click(screen.getByText('Score parts and weights'));
+    expect(screen.getByRole('cell', { name: '0.45' })).toBeVisible();
+    expect(screen.getByRole('cell', { name: '0.35' })).toBeVisible();
+    expect(screen.getByRole('cell', { name: '0.20' })).toBeVisible();
+    for (const value of Object.values(first.componentsBp)) expect(screen.getAllByText(`${value} bp`).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByText('Signed explanation'));
+    expect(within(screen.getByText('Signed explanation').parentElement!).getAllByRole('listitem').map(item => item.textContent)).toEqual(first.signedExplanation);
+    fireEvent.click(screen.getByText('Signed evidence and checks'));
+    for (const link of first.chain) if (link.block) expect(screen.getByTitle(link.block.id)).toBeVisible();
+    fireEvent.click(screen.getByText('Evidence', { selector: 'summary' }));
+    expect(screen.getByRole('heading', { name: `Cell ${first.cellId}`, hidden: true })).not.toBeVisible();
+    view.rerender(<OceanEvidence {...props} cell={second} />);
+    expect(screen.getByRole('heading', { name: `Cell ${second.cellId}` })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: `Cell ${first.cellId}` })).not.toBeInTheDocument();
+  });
+  it('keeps insufficient-quality Ocean Evidence unranked without score or fabricated components', () => {
+    const data = toExplorer(thailand);
+    const cell = data.cells.find(c => c.status === 'insufficient_quality')!;
+    render(<OceanEvidence cell={cell} bundle={data} onClose={() => {}} onSelect={() => {}} />);
+    expect(screen.getByText('Not ranked: fewer than 60% of pixels are usable')).toBeVisible();
+    expect(screen.queryByText('Signed score')).not.toBeInTheDocument();
+    expect(screen.queryByText('Score parts and weights')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Not ranked').length).toBeGreaterThan(0);
+  });
 });
+
+// Match the integrated controlled API; App owns the sidebar and selected Evidence.
+function MapHarness({ data }: { data: ExplorerData }) {
+  const [selected, setSelected] = React.useState<ExplorerCell | null>(null);
+  const [compare, setCompare] = React.useState(false);
+  const [controls, setControls] = React.useState(false);
+  return <>
+    <button onClick={() => setControls(!controls)}>Open layers test</button>
+    <MapExplorer hidden={false} bundle={data} selected={selected} onSelect={setSelected}
+      compare={compare} onCompare={() => setCompare(!compare)} controls={controls} onControls={() => setControls(!controls)} />
+  </>;
+}

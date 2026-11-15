@@ -20,14 +20,20 @@ function fromHundredths(value: number, decimals: 1 | 2): string {
   const sign = negative ? "-" : "";
 
   if (decimals === 2) {
-    return `${sign}${whole}.${String(hundredths).padStart(2, "0")}`;
+    return `${sign}${whole},${String(hundredths).padStart(2, "0")}`;
   }
   // Una décima: se redondea la centésima al vecino más cercano, mitad arriba.
   const tenths = Math.trunc((hundredths + 5) / 10);
-  return tenths === 10 ? `${sign}${whole + 1}.0` : `${sign}${whole}.${tenths}`;
+  return tenths === 10 ? `${sign}${whole + 1},0` : `${sign}${whole},${tenths}`;
 }
 
-/** Puntos base → porcentaje. 7636 → "76.36 %". */
+/** Formatea cualquier número o texto decimal con coma. */
+export function formatDecimal(val: number | string | null | undefined): string {
+  if (val === null || val === undefined) return "";
+  return String(val).replace(".", ",");
+}
+
+/** Puntos base → porcentaje. 7636 → "76,36 %". */
 export function percentFromBp(bp: number): string {
   return `${fromHundredths(bp, 2)} %`;
 }
@@ -37,16 +43,16 @@ export function roundPercentFromBp(bp: number): string {
   return `${Math.trunc((bp + 50) / 100)} %`;
 }
 
-/** Centi-decibelios → decibelios. 560 → "5.6 dB". */
+/** Centi-decibelios → decibelios. 560 → "5,6 dB". */
 export function decibelsFromCdb(cdb: number): string {
   return `${fromHundredths(cdb, 1)} dB`;
 }
 
-/** Metros → kilómetros con una décima. 16242 → "16.2 km". */
+/** Metros → kilómetros con una décima. 16242 → "16,2 km". */
 export function kilometresFromMetres(metres: number): string {
   const whole = Math.trunc(metres / 1000);
   const tenths = Math.trunc((metres % 1000) / 100);
-  return `${whole}.${tenths} km`;
+  return `${whole},${tenths} km`;
 }
 
 /** Metros, tal cual, cuando la escala es pequeña. 300 → "300 m". */
