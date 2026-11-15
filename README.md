@@ -1,69 +1,32 @@
-# React + TypeScript + Vite
+# Wombat Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Panel de riesgo de movimiento en masa para el GORE Piura. Consume bundles
+WONB v0 publicados e inmutables de Wombat-core, verificándolos antes de
+renderizar. No hay dependencia de código de Wombat-core: solo se comparte el
+formato del bundle (index.json + bloques WONB 0.2).
 
-Currently, two official plugins are available:
+## Cómo conectar un bundle nuevo
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. Obtén la versión inmutable publicada de Wombat-core (data/<aoi>/<vN>/ o URL de Pages) y la clave pública de config/trusted-issuers.json.
+2. Añade la entrada en dashboard.config.json ({ aoi, version, source, issuers: [clave pública] }).
+3. Ejecuta `npm run sync-data -- --aoi <id> --version <vN>`.
+4. Ejecuta `npm run build`.
+5. Revisa el banner SIMULATED DATA y la madurez (PROVISIONAL/VALIDATED).
 
-## Expanding the ESLint configuration
+Cambiar de bundle = cambiar la entrada en dashboard.config.json, nunca tocar código.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Scripts
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- `npm run dev` — servidor de desarrollo
+- `npm run build` — tsc + vite build (producción, sin red)
+- `npm run lint` — ESLint
+- `npm run sync-data -- --aoi <id> --version <vN>` — sincroniza y verifica un bundle
+- `npm test` — suite de pruebas (vitest)
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+## Arquitectura
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- `src/bundle/contract.ts` — único punto que conoce el formato wire (BundleContract).
+- `src/bundle/types.ts` — LoadedBundle, tipos internos de la app.
+- `src/components/MapView.tsx` — mapa MapLibre con overlays y celdas por estado.
+- `scripts/sync-data.mjs` — descarga, verifica y publica bundles inmutables.
+- `dashboard.config.json` — lista de bundles y emisores de confianza pinneados.
