@@ -40,6 +40,8 @@ export type { LoadedBundle } from "./types.ts";
 
 type ReadBytes = (path: string, signal?: AbortSignal) => Promise<Uint8Array>;
 
+let bundleLoadSequence = 0;
+
 async function defaultReadBytes(base: string, signal?: AbortSignal): Promise<ReadBytes> {
   return async (path: string, sig?: AbortSignal): Promise<Uint8Array> => {
     const response = await fetch(`${base}/${path}`, { cache: "default", signal: sig ?? signal });
@@ -264,6 +266,8 @@ export async function loadAndVerify(
   signal?: AbortSignal,
 ): Promise<LoadedBundle> {
   const base = baseUrl.replace(/\/$/, "");
+  const perfId = ++bundleLoadSequence;
+  const perfStart = typeof performance !== "undefined" ? performance.now() : null;
   const sourceRead = readBytes ?? (await defaultReadBytes(base, signal));
 
   // Cada recurso se obtiene una sola vez. La misma promesa/bytes se reutiliza
@@ -290,6 +294,12 @@ export async function loadAndVerify(
       `Integridad del bundle comprometida: ${files.failures.length} de ${files.checks.length} archivo(s) no coinciden`,
       files.failures.map((f) => `${f.path}: sha256 no coincide con index.json`),
     );
+  }
+  if (perfStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:download-and-sha256`, {
+      start: perfStart,
+      end: performance.now(),
+    });
   }
 
   // ── 3. Parsear archivos (solo después de verificar bytes) ──────────
@@ -445,6 +455,12 @@ export async function loadAndVerify(
   const overlays = decodeOverlays(boundsRaw, blobUrls);
 
   // ── 11. Ensamblar LoadedBundle ─────────────────────────────────────
+  if (perfStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:total`, {
+      start: perfStart,
+      end: performance.now(),
+    });
+  }
   return {
     aoiId: index.aoi_id,
     bundleVersion: index.bundle_version,
