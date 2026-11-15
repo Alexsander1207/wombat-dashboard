@@ -63,6 +63,16 @@ Reglas para las tres tareas:
   acción para las 3 primeras zonas (`top_n_actions: 3` en `risk-config.json`).
   Las zonas 4 a 10 tienen puesto y bloque `risk` firmado, pero su eslabón
   "Qué se recomienda" llega con `block: null`. La UI ya lo contempla.
+- Los estilos del Top 10 de Ximenacode ya están cargados: `src/styles/priorities.css`
+  (importado desde `src/index.css`, con sus tokens en `src/styles/tokens.css`).
+  Las filas de la lista (`.priority-row`, en `App.tsx`) y los marcadores
+  (`.cell-marker`, en `MapExplorer.tsx`) ya llevan `is-top-ten`, `is-first` y
+  `is-selected`. Falta `is-insufficient`, que hoy no aplica porque las zonas
+  sin datos suficientes no tienen puesto y no entran en la lista. Lo que pide
+  `src/styles/priorities.md` sobre el número visible ya se cumple: es texto
+  real tomado de `rank` del bloque `risk` firmado. `src/copy/es.ts` (textos de
+  Ximenacode) está en el repo pero todavía no se usa: los textos visibles
+  están escritos en los componentes.
 - Con 10 marcadores sobre el mapa de Tailandia, las zonas vecinas se
   solapan (ya pasa con la 2 y la 3). Conviene resolverlo en `.cell-marker`
   o separando los marcadores, no cambiando el orden.
