@@ -36,39 +36,39 @@ function Metrics({
   return (
     <dl className={expanded ? 'metrics expanded-metrics' : 'metrics'}>
       <div>
-        <dt>Píxeles válidos</dt>
+        <dt>Imagen utilizable</dt>
         <dd>{cell.valid} %</dd>
       </div>
       <div>
-        <dt>Puntaje de prioridad</dt>
+        <dt>Prioridad (0 a 100)</dt>
         <dd>
-          {cell.score === null ? 'Sin puntaje' : cell.score.toFixed(2)}
+          {cell.score === null ? 'Sin dato' : Math.round(cell.score * 100)}
         </dd>
       </div>
       <div>
-        <dt>Área con cambio</dt>
+        <dt>Superficie que cambió</dt>
         <dd>{cell.changed} %</dd>
       </div>
       <div>
-        <dt>Magnitud del cambio (p90)</dt>
+        <dt>Intensidad del cambio</dt>
         <dd>
           {cell.magnitude} <small>dB</small>
         </dd>
       </div>
       <div>
-        <dt>Retrodispersión en aumento</dt>
+        <dt>Señal de radar más fuerte</dt>
         <dd>{cell.increased} %</dd>
       </div>
       <div>
-        <dt>Retrodispersión en descenso</dt>
+        <dt>Señal de radar más débil</dt>
         <dd>{cell.decreased} %</dd>
       </div>
       <div>
-        <dt>Contraste con OPERA</dt>
+        <dt>¿Lo confirma otro satélite?</dt>
         <dd className="text-metric">{cell.water}</dd>
       </div>
       <div>
-        <dt>Vías cerca del cambio</dt>
+        <dt>Caminos cerca del cambio</dt>
         <dd>
           {cell.roads} <small>km</small>
         </dd>
@@ -82,8 +82,9 @@ function EvidenceHeading({ cell }: { cell: ExplorerCell }) {
     <>
       <div className="evidence-identity">
         <div>
-          <span className="section-caption">CELDA SELECCIONADA · EVIDENCIA</span>
-          <h2>Celda {cell.id}</h2>
+          <span className="section-caption">ZONA SELECCIONADA</span>
+          <h2>{cell.label}</h2>
+          <small className="cell-code">Código {cell.id}</small>
         </div>
         <span className="rank-badge">
           {cell.rank === null ? 'SIN PUESTO' : `PUESTO #${cell.rank}`}
@@ -122,11 +123,11 @@ export function EvidenceCard({
   return (
     <aside
       className="panel evidence-card"
-      aria-label={`Evidencia de la celda ${cell.id}`}
+      aria-label={`Por qué ${cell.label}`}
     >
       <div className="evidence-top">
-        <span>Evidencia de la celda</span>
-        <button aria-label="Cerrar la ficha de evidencia" onClick={onClose}>
+        <span>Por qué esta zona</span>
+        <button aria-label="Cerrar la ficha de la zona" onClick={onClose}>
           <X size={17} />
         </button>
       </div>
@@ -141,12 +142,12 @@ export function EvidenceCard({
         <DataStatus
           kind="quality"
           title="Datos insuficientes"
-          detail="La calidad del dato no permite ordenar esta celda. No es un cero."
+          detail="La imagen no alcanza para ordenar esta zona. No es un cero: es que no se puede saber."
         />
       )}
       {/* Primero el porqué, en palabras; después los números que lo sostienen. */}
       <div className="explanation">
-        <span className="section-caption">¿POR QUÉ ESTA CELDA?</span>
+        <span className="section-caption">¿POR QUÉ ESTA ZONA?</span>
         <p>{cell.explanation}</p>
       </div>
       <Metrics cell={cell} expanded />
@@ -154,12 +155,12 @@ export function EvidenceCard({
         <FileCheck2 size={15} />
         <span>
           {allValid
-            ? `${signed.length} bloques firmados · hash y firma válidos`
-            : 'Hay bloques que no verifican'}
+            ? `Dato comprobado: ${signed.length} firmas digitales válidas`
+            : 'Hay firmas que no se pudieron comprobar'}
         </span>
       </div>
       <button className="primary-button" onClick={onExpand}>
-        Ver la evidencia completa <ArrowUpRight size={16} />
+        Ver las pruebas firmadas <ArrowUpRight size={16} />
       </button>
     </aside>
   )
@@ -189,7 +190,7 @@ function ChainLink({ link }: { link: EvidenceLink }) {
         <h3>{link.title}</h3>
         <p>{link.summary}</p>
         {block === null ? (
-          <span>Esta celda no tiene bloque de este tipo en el bundle.</span>
+          <span>Para esta zona no se publicó este paso.</span>
         ) : (
           <>
             <span>
@@ -199,8 +200,8 @@ function ChainLink({ link }: { link: EvidenceLink }) {
               className={`verification-status ${valid ? 'verify-verified' : 'verify-failed'}`}
             >
               {valid ? <Check size={12} /> : <TriangleAlert size={12} />}
-              {block.hashOk ? 'Hash válido' : 'Hash no coincide'} ·{' '}
-              {block.signatureOk ? 'Firma Ed25519 válida' : 'Firma inválida'}
+              {block.hashOk ? 'Huella intacta' : 'La huella no coincide'} ·{' '}
+              {block.signatureOk ? 'Firma válida' : 'Firma inválida'}
               {!block.withinTtl && ' · fuera de vigencia'}
             </span>
           </>
@@ -222,12 +223,13 @@ export function EvidenceChain({ cell }: { cell: ExplorerCell }) {
     <section className="verification">
       <div className="section-title">
         <span>
-          <ShieldCheck size={16} /> Cadena de evidencia firmada
+          <ShieldCheck size={16} /> De dónde sale este dato, paso a paso
         </span>
       </div>
       <p>
-        Cada bloque se verificó en este navegador: su hash SHA-256 y su firma
-        Ed25519 contra la clave fijada en la configuración del dashboard.
+        Cada paso llega firmado digitalmente. Tu navegador acaba de comprobar
+        su huella (SHA-256) y su firma (Ed25519): si alguien hubiera alterado
+        un solo número, aquí se vería.
       </p>
       <div className="wonb-sections">
         {cell.chain.map((link) => (
@@ -248,13 +250,13 @@ export function EvidenceDetails({
   return (
     <aside
       className="panel evidence-details"
-      aria-label="Detalle de la evidencia"
+      aria-label="Pruebas de la zona"
       key={cell.id}
     >
       <div className="evidence-top">
         <div>
-          <h1>Detalle de la evidencia</h1>
-          <p>Del cambio en superficie a la revisión en campo</p>
+          <h1>Las pruebas de esta zona</h1>
+          <p>Del cambio que vio el satélite a la revisión en campo</p>
         </div>
         <button aria-label="Volver al mapa" onClick={onClose}>
           <X size={18} />
@@ -263,22 +265,22 @@ export function EvidenceDetails({
       <EvidenceHeading cell={cell} />
       <div className="detail-section">
         <div className="section-title">
-          <span>Métricas de la evidencia</span>
-          <span className="section-caption">DEL BLOQUE DE RIESGO FIRMADO</span>
+          <span>Los números</span>
+          <span className="section-caption">DEL DATO FIRMADO</span>
         </div>
         <Metrics cell={cell} expanded />
       </div>
       <div className="detail-section">
-        <h3>Por qué esta celda tiene este puesto</h3>
+        <h3>Por qué esta zona tiene este puesto</h3>
         <p>{cell.explanation}</p>
       </div>
       <EvidenceChain cell={cell} />
       <div className="detail-section provenance">
         <h3>Procedencia</h3>
         <p>
-          Las métricas y el puesto salen del bloque de riesgo firmado de esta
-          celda. El orden es una sugerencia de revisión para preparación; no
-          es un pronóstico ni una clasificación de inundación.
+          Los números y el puesto salen del dato firmado de esta zona. El orden
+          es una sugerencia de revisión para preparación; no es un pronóstico
+          ni dice que la zona esté inundada.
         </p>
         <a
           href="https://www.jpl.nasa.gov/go/opera/products/"

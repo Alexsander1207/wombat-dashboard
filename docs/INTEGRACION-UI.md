@@ -16,34 +16,56 @@ src/bundle/contract.ts             loadAndVerify → LoadedBundle (único que co
         │
 src/adapters/toExplorer.ts         toExplorer(LoadedBundle) → ExplorerData (solo traduce)
         │
-src/App.tsx                        cabecera, insignias, navegación, estados de carga y error
-        ├── src/components/MapExplorer.tsx   mapa, top del orden de revisión, leyenda
-        └── src/components/Evidence.tsx      ficha de celda, detalle y cadena de evidencia
+src/App.tsx                        cabecera, insignias, barra lateral, estados de carga y error
+        ├── src/components/MapExplorer.tsx   mapa, marcadores numerados, barra inferior (fechas y leyenda)
+        └── src/components/Evidence.tsx      ficha de zona, pruebas firmadas y cadena de evidencia
 ```
 
 Si el bundle no verifica, `loadAndVerify` lanza un error y el mapa no se
 dibuja: `App.tsx` muestra "No se pudo cargar el bundle" con el motivo.
 
+## Cómo está armada la pantalla
+
+Los paneles están **acoplados**, no flotan sobre el mapa:
+
+- **Cabecera** (`.app-header`, en `App.tsx`): marca, titular, insignia de
+  integridad, insignia de procedencia, selector de área y metodología.
+- **Mapa** (`.map-stage`, en `MapExplorer.tsx`): solo flotan sus controles
+  (acercar/alejar, norte) y, cuando se abre desde el menú, el panel de capas.
+- **Barra inferior** (`.map-dock`, en `MapExplorer.tsx`): fechas de antes y
+  después, botón de comparar y leyenda.
+- **Barra lateral derecha** (`.side-dock`, en `App.tsx`): "Dónde revisar
+  primero", el conteo por estado, la lista de las primeras zonas y, al elegir
+  una, su ficha (`EvidenceCard`) o sus pruebas firmadas (`EvidenceDetails`).
+
 ## Quién toca qué (para no pisarse)
 
 | Tarea | Archivo que SÍ puede tocar | Punto exacto |
 | --- | --- | --- |
-| Top 10 numerado sobre el mapa | `src/components/MapExplorer.tsx` | La constante `TOP_COUNT` (hoy `3`) gobierna a la vez los marcadores numerados, el contorno de las celdas destacadas y la lista del panel. Las celdas llegan ya ordenadas en `bundle.ranked` (puesto 1 primero). |
-| Ficha de cada celda | `src/components/Evidence.tsx` | `EvidenceCard` (ficha flotante), `EvidenceDetails` (detalle) y `EvidenceChain` (cadena firmada). Reciben un `ExplorerCell`. |
-| Titular | `src/App.tsx` | El bloque `<div className="header-context">` de la cabecera. |
+| Top 10 numerado sobre el mapa | `src/components/MapExplorer.tsx` y la constante `TOP_COUNT` de `src/adapters/toExplorer.ts` | `TOP_COUNT` (hoy `3`) gobierna a la vez los marcadores numerados del mapa, el contorno de las zonas destacadas y la lista de la barra lateral. Las zonas llegan ya ordenadas en `bundle.ranked` (puesto 1 primero). Los marcadores se crean en el bucle `for (const cell of topCells)`; su estilo es `.cell-marker`. |
+| Ficha de cada celda | `src/components/Evidence.tsx` | `EvidenceCard` (ficha), `EvidenceDetails` (pruebas) y `EvidenceChain` (cadena firmada). Reciben un `ExplorerCell`. |
+| Titular | `src/App.tsx` | El bloque `<div className="header-context">` de la cabecera, y el bloque `<div className="dock-intro">` de la barra lateral ("Dónde revisar primero"). |
 | Estilos nuevos de cualquiera de las tres | `src/styles/integration.css` | Agregar al final, cada una en su propio bloque con un comentario. No editar `src/App.css` ni `src/styles/mireya/*` (son el diseño original). |
+
+Como el titular y la lista de la barra lateral viven en `App.tsx`, quien haga
+el top 10 **no** necesita abrir `App.tsx`: la lista lateral ya recorre
+`explorer.ranked.slice(0, TOP_COUNT)`. Con cambiar `TOP_COUNT` se alarga sola.
 
 Reglas para las tres tareas:
 
 - **Nadie toca** `src/verify/*`, `src/bundle/*`, `dashboard.config.json`,
   `public/bundles/*` ni `tests/*`. Si falta un dato, se pide: se agrega en
   `src/adapters/toExplorer.ts` y lo hace una sola persona, avisando a la otra.
-- Los textos van en español. Lenguaje de producto: "preparación" y "orden de
-  revisión sugerido".
+- Los textos van en español y en lenguaje para el público ("zona", "señal de
+  radar", "firma válida"), con el código técnico solo como dato secundario.
+  Lenguaje de producto: "preparación" y "orden de revisión sugerido".
 - El top 10 **no** implica diez bloques `action`: el bundle solo publica
-  acción para las 3 primeras celdas (`top_n_actions: 3` en `risk-config.json`).
-  Las celdas 4 a 10 tienen puesto y bloque `risk` firmado, pero su eslabón
-  "Acción" llega con `block: null`. La UI ya lo contempla.
+  acción para las 3 primeras zonas (`top_n_actions: 3` en `risk-config.json`).
+  Las zonas 4 a 10 tienen puesto y bloque `risk` firmado, pero su eslabón
+  "Qué se recomienda" llega con `block: null`. La UI ya lo contempla.
+- Con 10 marcadores sobre el mapa de Tailandia, las zonas vecinas se
+  solapan (ya pasa con la 2 y la 3). Conviene resolverlo en `.cell-marker`
+  o separando los marcadores, no cambiando el orden.
 
 ## La cadena de evidencia: qué componente recibe los cuatro bloques
 
@@ -60,9 +82,10 @@ cambio, contexto OPERA, riesgo, acción. Cada eslabón es un `EvidenceLink`
 ```ts
 interface EvidenceLink {
   type: "change" | "context" | "risk" | "action";
-  title: string;      // "Cambio", "Contexto OPERA y vías", "Riesgo", "Acción"
-  summary: string;    // qué acredita ese bloque para esta celda
-  block: SignedBlockRef | null;   // null si la celda no tiene ese bloque
+  title: string;      // para el público: "Qué cambió", "Qué hay alrededor (agua y caminos)",
+                      // "Qué prioridad tiene", "Qué se recomienda"
+  summary: string;    // qué acredita ese bloque para esta zona
+  block: SignedBlockRef | null;   // null si la zona no tiene ese bloque
 }
 
 interface SignedBlockRef {          // src/bundle/types.ts
@@ -80,17 +103,24 @@ interface SignedBlockRef {          // src/bundle/types.ts
 
 `hashOk` y `signatureOk` **no son constantes**: salen de `verifyBlocks`
 (`src/verify/bundle.ts`), bloque por bloque, en `src/bundle/contract.ts`.
-Los bloques `change` y `context` son del AOI entero, así que todas las celdas
-de un bundle comparten esos dos hashes; `risk` y `action` son de la celda.
+Los bloques `change` y `context` son del AOI entero, así que todas las zonas
+de un bundle comparten esos dos hashes; `risk` y `action` son de la zona.
 
-## De dónde sale el texto en español de cada celda
+En pantalla, `hashOk` se muestra como "Huella intacta" y `signatureOk` como
+"Firma válida". El hash completo va en el `title` del `<code>`.
+
+## De dónde sale el texto en español de cada zona
 
 Las frases del tipo "49% of valid pixels decreased ≥3 dB" vienen **dentro del
 bloque `risk` firmado** (`payload.explanation`), en inglés. No se pueden
 traducir ahí: cambiaría el hash del bloque. `explainInSpanish` en
-`src/adapters/toExplorer.ts` redacta la misma frase en español a partir de los
+`src/adapters/toExplorer.ts` redacta la explicación en español a partir de los
 campos numéricos del mismo bloque (`metrics.*`) y de los umbrales de
-`risk-config.json`, que está cubierto por el sha256 de `index.json`.
+`risk-config.json`, que está cubierto por el sha256 de `index.json`. Usa los
+mismos números; solo cambia la redacción, pensada para público general.
+
+El nombre visible de cada zona ("Zona 1") sale de su puesto firmado; el
+código técnico (`tailandia-01-r19c12`) se muestra debajo, en pequeño.
 
 ## Qué cambió respecto del diseño original, y por qué
 
@@ -102,10 +132,13 @@ campos numéricos del mismo bloque (`metrics.*`) y de los umbrales de
 - **Verificación real en lugar del botón "Verify Evidence".** El botón del
   diseño llamaba a un servicio que no existía; ahora se muestra el resultado
   de la verificación que ya ocurrió al cargar.
-- **Insignia de integridad** en la cabecera y en el pie, y selector de AOI,
+- **Paneles acoplados.** En el diseño casi todo flotaba sobre el mapa y lo
+  tapaba; ahora la lista, la ficha, las fechas y la leyenda tienen su sitio.
+- **Insignia de integridad** en la cabecera y en el pie, y selector de área,
   que el diseño no tenía porque su demo era de un solo AOI.
-- **Colores de celda** en rampa de un solo tono según el orden de revisión,
-  en lugar de naranja/azul por signo del cambio.
+- **Colores de zona** en rampa de un solo tono según el orden de revisión
+  (`src/frontend/statusColors.ts`), en lugar de naranja/azul por signo del cambio.
+- **Nombres para el público** en lugar de términos técnicos.
 
 La autoría de cada archivo copiado está en `CREDITS.md`.
 

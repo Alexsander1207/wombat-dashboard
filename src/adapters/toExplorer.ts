@@ -20,10 +20,16 @@ import type {
 import type { CellStatus } from "../contract/types.ts";
 import { actionLabel, statusLabel } from "../format.ts";
 
+/**
+ * Cuántas zonas del orden de revisión se destacan: marcadores numerados en el
+ * mapa y lista de la barra lateral. Para un top 10, basta cambiar este número.
+ */
+export const TOP_COUNT = 3;
+
 /** Un eslabón de la cadena de evidencia de una celda. */
 export interface EvidenceLink {
   type: "change" | "context" | "risk" | "action";
-  /** Nombre en español: "Cambio", "Contexto OPERA y vías", "Riesgo", "Acción". */
+  /** Nombre para el público: "Qué cambió", "Qué hay alrededor", "Qué prioridad tiene", "Qué se recomienda". */
   title: string;
   /** Qué acredita ese bloque para esta celda, en una línea. */
   summary: string;
@@ -33,7 +39,10 @@ export interface EvidenceLink {
 
 /** Una celda lista para el Explorer. Todos los valores salen del bloque `risk` firmado. */
 export interface ExplorerCell {
+  /** Código técnico de la celda en el bundle, p. ej. "tailandia-01-r19c12". */
   id: string;
+  /** Nombre para el público: "Zona 1" (por su puesto) o "Zona sin datos suficientes". */
+  label: string;
   status: CellStatus;
   /** "Revisar primero", "Revisar después", "Sin prioridad de revisión", "Datos insuficientes". */
   statusLabel: string;
@@ -92,11 +101,11 @@ function operaLabel(cell: BundleCell): string {
   const overlap = roundPct(cell.metrics.operaOverlapBp);
   switch (cell.metrics.operaStatus) {
     case "corroborated":
-      return `Corroborado: agua nueva en ${overlap} % del área con cambio`;
+      return `Sí: ve agua nueva en ${overlap} % de lo que cambió`;
     case "not_corroborated":
-      return `No corroborado: agua nueva en ${overlap} % del área con cambio`;
+      return `No: solo ve agua nueva en ${overlap} % de lo que cambió`;
     case "unavailable":
-      return "Sin observación OPERA disponible";
+      return "No hay imagen de otro satélite para comparar";
     default:
       return cell.metrics.operaStatus || "Sin dato";
   }
@@ -109,34 +118,32 @@ function operaLabel(cell: BundleCell): string {
 export function explainInSpanish(cell: BundleCell, config: RiskConfig | null): string {
   const m = cell.metrics;
   if (cell.status === "insufficient_quality") {
-    const minimum = config ? ` (mínimo ${config.minValidPercent} %)` : "";
-    return `Solo ${roundPct(m.validBp)} % de los píxeles son válidos${minimum}; la celda queda fuera del orden de revisión.`;
+    const minimum = config ? ` (hace falta al menos ${config.minValidPercent} %)` : "";
+    return `Solo ${roundPct(m.validBp)} % de esta zona tiene imagen de radar utilizable${minimum}, así que queda fuera del orden de revisión. No significa que no haya cambios: significa que no se puede saber.`;
   }
-  const db = config ? `≥${config.deltaDbThreshold} dB` : "de forma marcada";
+  const db = config ? ` (${config.deltaDbThreshold} dB o más)` : "";
   const parts = [
-    `${roundPct(m.decreaseBp)} % de los píxeles válidos bajó ${db}; ${roundPct(m.increaseBp)} % subió ${db}.`,
+    `Entre las dos pasadas del satélite, la señal de radar bajó con fuerza${db} en ${roundPct(m.decreaseBp)} % de esta zona y subió en ${roundPct(m.increaseBp)} %.`,
   ];
   const overlap = roundPct(m.operaOverlapBp);
   if (m.operaStatus === "corroborated") {
-    const threshold = config ? ` (umbral ${config.corroborationPercent} %)` : "";
+    const threshold = config ? ` (se pide al menos ${config.corroborationPercent} %)` : "";
     parts.push(
-      `OPERA DSWx-S1 (Sentinel-1) muestra agua nueva en ${overlap} % del área con cambio${threshold}.`,
+      `Un segundo satélite lo respalda: Sentinel-1 (producto OPERA de la NASA) ve agua nueva en ${overlap} % de lo que cambió${threshold}.`,
     );
   } else if (m.operaStatus === "not_corroborated") {
-    const threshold = config
-      ? ` (por debajo del umbral de ${config.corroborationPercent} %)`
-      : "";
+    const threshold = config ? `, por debajo del ${config.corroborationPercent} % que se pide` : "";
     parts.push(
-      `OPERA DSWx-S1 (Sentinel-1) muestra agua nueva en solo ${overlap} % del área con cambio${threshold}.`,
+      `Un segundo satélite no lo respalda: Sentinel-1 (producto OPERA de la NASA) ve agua nueva en solo ${overlap} % de lo que cambió${threshold}.`,
     );
   } else if (m.operaStatus === "unavailable") {
     const gap = config ? ` a menos de ${config.operaMaxGapDays} días` : "";
     parts.push(
-      `No hay observación OPERA DSWx-S1 (Sentinel-1)${gap}; no se dispone de un contraste independiente.`,
+      `No hay imagen de un segundo satélite (Sentinel-1, producto OPERA)${gap} para comparar.`,
     );
   }
   const buffer = config ? `a menos de ${config.roadBufferM} m` : "cerca";
-  parts.push(`${km(m.roadMNearChange)} km de vías están ${buffer} de píxeles con cambio.`);
+  parts.push(`Hay ${km(m.roadMNearChange)} km de caminos ${buffer} de lo que cambió.`);
   return parts.join(" ");
 }
 
@@ -159,6 +166,7 @@ export function toExplorer(c: LoadedBundle): ExplorerData {
     const water = operaLabel(cell);
     return {
       id: cell.cellId,
+      label: cell.rank === null ? "Zona sin datos suficientes" : `Zona ${cell.rank}`,
       status: cell.status,
       statusLabel: statusLabel(cell.status),
       rank: cell.rank,
@@ -177,29 +185,31 @@ export function toExplorer(c: LoadedBundle): ExplorerData {
       chain: [
         {
           type: "change",
-          title: "Cambio",
-          summary: `${pct(m.changedBp)} % del área con cambio entre las dos pasadas de NISAR`,
+          title: "Qué cambió",
+          summary: `${pct(m.changedBp)} % de la zona cambió entre las dos pasadas del satélite NISAR`,
           block: c.signedBlocks.change,
         },
         {
           type: "context",
-          title: "Contexto OPERA y vías",
-          summary: water,
+          title: "Qué hay alrededor (agua y caminos)",
+          summary: `¿Lo confirma otro satélite? ${water}`,
           block: c.signedBlocks.context,
         },
         {
           type: "risk",
-          title: "Riesgo",
+          title: "Qué prioridad tiene",
           summary:
             cell.rank === null
-              ? "Sin puesto: datos insuficientes"
+              ? "Sin puesto: no hay datos suficientes"
               : `Puesto ${cell.rank} en el orden de revisión sugerido`,
           block: c.signedBlocks.risk[cell.cellId] ?? null,
         },
         {
           type: "action",
-          title: "Acción",
-          summary: action ? actionLabel(action.action) : "Sin acción publicada para esta celda",
+          title: "Qué se recomienda",
+          summary: action
+            ? actionLabel(action.action)
+            : "Sin recomendación publicada para esta zona",
           block: c.signedBlocks.action[cell.cellId] ?? null,
         },
       ],

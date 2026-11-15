@@ -13,7 +13,12 @@ import {
   releaseBundle,
   type LoadedBundle,
 } from './bundle/contract.ts'
-import { toExplorer, type ExplorerCell } from './adapters/toExplorer.ts'
+import {
+  TOP_COUNT,
+  toExplorer,
+  type ExplorerCell,
+} from './adapters/toExplorer.ts'
+import { STATUS_FILL, STATUS_LEGEND } from './frontend/statusColors.ts'
 import { MapExplorer } from './components/MapExplorer.tsx'
 import { BrandLogo } from './components/BrandLogo'
 import { FloatingNavigation } from './components/FloatingNavigation'
@@ -58,9 +63,10 @@ const PINNED_ROLES = ['change', 'context', 'risk', 'action']
  * integrityWarning y la insignia sigue al dato firmado.
  */
 function originBadge(dataOrigin: string, maturity: string): string {
-  if (dataOrigin === 'nisar_real') return `NISAR real · ${maturity}`
+  if (dataOrigin === 'nisar_real')
+    return `Datos reales del satélite NISAR · ${maturity}`
   if (dataOrigin === 'simulated')
-    return 'SIMULATED — fixture de desarrollo, no es un AOI real'
+    return 'SIMULATED · datos de prueba, no es un lugar real'
   return `Procedencia sin clasificar: ${dataOrigin} · ${maturity}`
 }
 
@@ -79,7 +85,6 @@ export default function App() {
   const [selected, setSelected] = useState<ExplorerCell | null>(null)
   const [compare, setCompare] = useState(false)
   const [controls, setControls] = useState(false)
-  const [priorityOpen, setPriorityOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   // ── 1. Cargar configuración de bundles ───────────────────────────────
@@ -191,7 +196,11 @@ export default function App() {
         <div className="header-context">
           <span className="subtitle">Preparación ante El Niño</span>
           <span className="study-area-metadata">
-            {showMap ? explorer.aoiName : 'Orden de revisión sugerido'}
+            {!showMap
+              ? 'Orden de revisión sugerido'
+              : bundle.dataOrigin === 'simulated'
+                ? 'Área de demostración'
+                : explorer.aoiName}
           </span>
         </div>
         <div className="header-actions">
@@ -202,8 +211,8 @@ export default function App() {
             >
               <ShieldCheck size={14} />
               {verified
-                ? `${verification.blocksChecked} bloques firmados verificados`
-                : 'Verificación con problemas'}
+                ? `Datos verificados · ${verification.blocksChecked} firmas comprobadas`
+                : 'Los datos no pasaron la verificación'}
             </span>
           )}
           {showMap && (
@@ -215,7 +224,7 @@ export default function App() {
             <label className="aoi-picker">
               <select
                 id="aoi-selector"
-                aria-label="Área de interés"
+                aria-label="Área de estudio"
                 value={`${selectedBundle.aoi}/${selectedBundle.version}`}
                 onChange={(e) => {
                   const [aoi, version] = e.target.value.split('/')
@@ -279,86 +288,131 @@ export default function App() {
           )}
           {showMap && (
             <>
-              <FloatingNavigation
-                active={
-                  view === 'methodology'
-                    ? 'guide'
-                    : view === 'evidence'
-                      ? 'evidence'
-                      : controls
-                        ? 'layers'
-                        : 'explore'
-                }
-                onNavigate={(destination) => {
-                  setPriorityOpen(false)
-                  if (destination === 'layers') {
-                    setView('map')
-                    setControls((value) => !value)
-                  } else {
-                    setControls(false)
-                    setView(
-                      destination === 'guide'
-                        ? 'methodology'
-                        : destination === 'evidence'
-                          ? 'evidence'
-                          : 'map',
-                    )
+              <div
+                className={`stage ${view === 'methodology' ? 'is-hidden' : ''}`}
+              >
+                <FloatingNavigation
+                  active={
+                    view === 'methodology'
+                      ? 'guide'
+                      : view === 'evidence'
+                        ? 'evidence'
+                        : controls
+                          ? 'layers'
+                          : 'explore'
                   }
-                }}
-              />
-              <MapExplorer
-                hidden={view === 'methodology'}
-                bundle={explorer}
-                selected={selected}
-                onSelect={setSelected}
-                compare={compare && view === 'map'}
-                onCompare={() => setCompare(!compare)}
-                controls={controls && view === 'map'}
-                onControls={() => {
-                  setControls((value) => !value)
-                  setPriorityOpen(false)
-                }}
-                priorityOpen={priorityOpen && view === 'map'}
-                onPriority={() => {
-                  setPriorityOpen((value) => !value)
-                  setControls(false)
-                }}
-              />
-              {view === 'map' && selected && (
-                <EvidenceCard
-                  cell={selected}
-                  before={explorer.before.date}
-                  after={explorer.after.date}
-                  onClose={() => setSelected(null)}
-                  onExpand={() => setView('evidence')}
+                  onNavigate={(destination) => {
+                    if (destination === 'layers') {
+                      setView('map')
+                      setControls((value) => !value)
+                    } else {
+                      setControls(false)
+                      setView(
+                        destination === 'guide'
+                          ? 'methodology'
+                          : destination === 'evidence'
+                            ? 'evidence'
+                            : 'map',
+                      )
+                    }
+                  }}
                 />
-              )}
-              {view === 'evidence' && !selected && (
-                <section className="panel evidence-empty" role="status">
-                  <ShieldCheck size={25} />
-                  <h2>No hay una celda seleccionada</h2>
-                  <p>
-                    Elige una celda en el mapa o una del orden de revisión
-                    sugerido para ver su evidencia.
-                  </p>
-                  <button
-                    className="primary-button"
-                    onClick={() => setView('map')}
-                  >
-                    Explorar el mapa
-                  </button>
-                </section>
-              )}
-              {view === 'evidence' && selected && (
-                <>
-                  <button className="back-map" onClick={() => setView('map')}>
-                    <ChevronLeft size={15} /> Volver al mapa
-                  </button>
-                  <EvidenceDetails
-                    cell={selected}
-                    onClose={() => setView('map')}
-                  />
-                </>
+                <MapExplorer
+                  hidden={view === 'methodology'}
+                  bundle={explorer}
+                  selected={selected}
+                  onSelect={setSelected}
+                  compare={compare && view !== 'methodology'}
+                  onCompare={() => setCompare(!compare)}
+                  controls={controls && view !== 'methodology'}
+                  onControls={() => setControls((value) => !value)}
+                />
+              </div>
+              {/* Barra lateral acoplada: no flota sobre el mapa. */}
+              {view !== 'methodology' && (
+                <aside
+                  className={`side-dock ${selected ? 'has-card' : ''}`}
+                  aria-label="Orden de revisión sugerido"
+                >
+                  {view === 'evidence' && selected ? (
+                    <>
+                      <button
+                        className="dock-back"
+                        onClick={() => setView('map')}
+                      >
+                        <ChevronLeft size={15} /> Volver al resumen
+                      </button>
+                      <EvidenceDetails
+                        cell={selected}
+                        onClose={() => setView('map')}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <div className="dock-intro">
+                        <h2>Dónde revisar primero</h2>
+                        <p>
+                          El satélite miró esta área dos veces. Estas son las
+                          zonas donde más cambió la superficie: el orden
+                          sugerido para ir a revisar en campo.
+                        </p>
+                        <ul className="dock-counts">
+                          {STATUS_LEGEND.map(([status, label]) => (
+                            <li key={status}>
+                              <i style={{ background: STATUS_FILL[status] }} />
+                              <strong>
+                                {
+                                  explorer.cells.filter(
+                                    (cell) => cell.status === status,
+                                  ).length
+                                }
+                              </strong>{' '}
+                              {label.toLowerCase()}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="dock-top">
+                        {explorer.ranked.slice(0, TOP_COUNT).map((cell) => (
+                          <button
+                            className={`priority-row ${selected?.id === cell.id ? 'selected' : ''}`}
+                            key={cell.id}
+                            onClick={() => setSelected(cell)}
+                          >
+                            <span className={`rank rank-${cell.rank}`}>
+                              {cell.rank}
+                            </span>
+                            <span>
+                              <strong>{cell.label}</strong>
+                              <small>
+                                Prioridad{' '}
+                                {cell.score === null
+                                  ? 'sin dato'
+                                  : `${Math.round(cell.score * 100)} de 100`}{' '}
+                                · {cell.statusLabel}
+                              </small>
+                            </span>
+                            <span className="priority-arrow">↗</span>
+                          </button>
+                        ))}
+                      </div>
+                      {selected ? (
+                        <EvidenceCard
+                          cell={selected}
+                          before={explorer.before.date}
+                          after={explorer.after.date}
+                          onClose={() => setSelected(null)}
+                          onExpand={() => setView('evidence')}
+                        />
+                      ) : (
+                        <p className="dock-hint">
+                          Toca una zona del mapa o de la lista para ver por
+                          qué se sugiere revisarla.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </aside>
               )}
             </>
           )}

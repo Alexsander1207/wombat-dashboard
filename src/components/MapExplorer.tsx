@@ -15,42 +15,30 @@ import * as maplibregl from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import {
   ArrowLeftRight,
-  ChevronDown,
-  ChevronUp,
   Crosshair,
   Minus,
   Plus,
-  X,
   Triangle,
   SlidersHorizontal,
 } from 'lucide-react'
-import type { ExplorerCell, ExplorerData } from '../adapters/toExplorer.ts'
+import {
+  TOP_COUNT,
+  type ExplorerCell,
+  type ExplorerData,
+} from '../adapters/toExplorer.ts'
 import { readableDate } from '../format.ts'
 import { DataStatus } from './DataStatus'
 import { MapLayerControls, type VisibleLayers } from './MapLayerControls'
 import { getMapDisplay } from '../frontend/mapDisplay'
+import { STATUS_FILL, STATUS_LEGEND } from '../frontend/statusColors.ts'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 // MapLibre v6 requires Vite to bundle its worker before any map is created.
 maplibregl.setWorkerUrl(workerUrl)
 
-/** Deja libre la cabecera flotante (arriba) y la barra de observaciones (abajo). */
-const MAP_PADDING = { top: 96, bottom: 116, left: 56, right: 56 }
+/** Margen del encuadre: los paneles ya no flotan sobre el mapa. */
+const MAP_PADDING = 36
 
-/** Cuántas celdas del orden de revisión se destacan en el mapa y en el panel. */
-const TOP_COUNT = 3
-
-/**
- * Rampa secuencial de un solo tono, no un semáforo: el color indica el lugar
- * en el orden de revisión sugerido, no un nivel de peligro. Los datos
- * insuficientes van en gris, fuera de la rampa.
- */
-const STATUS_FILL: Record<ExplorerCell['status'], string> = {
-  review_high: '#f97532',
-  review_medium: '#f7b27a',
-  review_low: '#f3e2c4',
-  insufficient_quality: '#7c8594',
-}
 /**
  * La opacidad también sigue el orden de revisión: lo que hay que mirar
  * primero es lo que más se ve; lo que no tiene prioridad casi no tapa el radar.
@@ -66,12 +54,6 @@ const FILL_OPACITY: maplibregl.ExpressionSpecification = [
   0.1,
   0.3,
 ]
-const STATUS_LEGEND: [ExplorerCell['status'], string][] = [
-  ['review_high', 'Revisar primero'],
-  ['review_medium', 'Revisar después'],
-  ['review_low', 'Sin prioridad de revisión'],
-  ['insufficient_quality', 'Datos insuficientes'],
-]
 
 interface Props {
   hidden: boolean
@@ -81,8 +63,6 @@ interface Props {
   compare: boolean
   onCompare: () => void
   controls: boolean
-  priorityOpen: boolean
-  onPriority: () => void
   onControls: () => void
 }
 export function MapExplorer({
@@ -94,8 +74,6 @@ export function MapExplorer({
   onCompare,
   controls,
   onControls,
-  priorityOpen,
-  onPriority,
 }: Props) {
   const baseContainer = useRef<HTMLDivElement>(null),
     beforeContainer = useRef<HTMLDivElement>(null)
@@ -111,31 +89,18 @@ export function MapExplorer({
   const [split, setSplit] = useState(50),
     [opacity, setOpacity] = useState(60)
   const popover = useRef<HTMLDivElement>(null)
-  const priorityTrigger = useRef<HTMLButtonElement>(null)
-  const [legendOpen, setLegendOpen] = useState(true)
   const top = bundle.ranked.slice(0, TOP_COUNT)
   const [west, south, east, north] = bundle.bounds
   useEffect(() => {
-    if (!controls && !priorityOpen) return
-    const close = () => {
-      if (controls) onControls()
-      if (priorityOpen) onPriority()
-    }
+    if (!controls) return
     const outside = (event: PointerEvent) => {
       if (!(event.target instanceof Element)) return
-      if (
-        !popover.current?.contains(event.target) &&
-        !priorityTrigger.current?.contains(event.target)
-      )
-        close()
+      if (!popover.current?.contains(event.target)) onControls()
     }
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        close()
-        ;(priorityOpen
-          ? priorityTrigger.current
-          : document.querySelector<HTMLButtonElement>('.hamburger-trigger')
-        )?.focus()
+        onControls()
+        document.querySelector<HTMLButtonElement>('.hamburger-trigger')?.focus()
       }
     }
     document.addEventListener('pointerdown', outside, true)
@@ -144,7 +109,7 @@ export function MapExplorer({
       document.removeEventListener('pointerdown', outside, true)
       document.removeEventListener('keydown', escape)
     }
-  }, [controls, priorityOpen, onControls, onPriority])
+  }, [controls, onControls])
   useEffect(() => {
     selectRef.current = onSelect
   }, [onSelect])
@@ -347,13 +312,12 @@ export function MapExplorer({
             for (const cell of topCells) {
               const el = document.createElement('button')
               el.className = 'cell-marker'
-              el.textContent = `#${cell.rank}`
+              el.textContent = String(cell.rank)
               el.setAttribute(
                 'aria-label',
-                `Seleccionar la celda ${cell.id}, puesto ${cell.rank}`,
+                `Ver ${cell.label}, puesto ${cell.rank} del orden de revisión`,
               )
-              // El marcador está desplazado respecto de su celda: si el clic
-              // llegara al mapa, seleccionaría la celda que queda debajo.
+              // El clic en el marcador no debe llegar además al mapa.
               for (const type of ['mousedown', 'mouseup', 'pointerdown'])
                 el.addEventListener(type, (event) => event.stopPropagation())
               el.onclick = (event) => {
@@ -363,8 +327,7 @@ export function MapExplorer({
               markers.push(
                 new maplibregl.Marker({
                   element: el,
-                  anchor: 'bottom-left',
-                  offset: [12, -15],
+                  anchor: 'center',
                 })
                   .setLngLat(cell.center)
                   .addTo(map),
@@ -448,85 +411,60 @@ export function MapExplorer({
       map.setPaintProperty('change', 'raster-opacity', display.changeOpacity)
     }
   }, [ready, layers, selected, opacity, compare])
-  const select = (cell: ExplorerCell) => {
-    onSelect(cell)
-    if (priorityOpen) onPriority()
-    maps.current[0]?.easeTo({ center: cell.center, duration: 650 })
-  }
   const pairNote =
-    bundle.mode === 'simulated' ? 'Par simulado (fixture)' : 'Par NISAR real'
+    bundle.mode === 'simulated'
+      ? 'Imágenes simuladas de prueba'
+      : 'Imágenes reales del satélite NISAR'
   return (
     <section
       className={`map-explorer ${selected ? 'has-selection' : ''} ${hidden ? 'is-hidden' : ''}`}
       aria-label={`Mapa de cambios en superficie: ${bundle.aoiName}`}
     >
-      <div className="map-canvas" ref={baseContainer} />
-      <div
-        className="comparison-map"
-        style={{
-          clipPath: `inset(0 ${100 - split}% 0 0)`,
-          visibility: compare ? 'visible' : 'hidden',
-        }}
-      >
-        <div className="map-canvas" ref={beforeContainer} />
-      </div>
-      {mapError && (
-        <div className="map-fallback">
-          <DataStatus
-            kind="connection"
-            title="El mapa interactivo no está disponible"
-            detail="WebGL no pudo iniciarse. Elige una celda de la lista para ver su evidencia."
-          />
-          {top.map((c) => (
-            <button key={c.id} onClick={() => select(c)}>
-              {c.id} · Puesto {c.rank}
-            </button>
-          ))}
-        </div>
-      )}
-      {!ready && !mapError && (
-        <div className="map-loading" role="status">
-          Cargando el mapa…
-        </div>
-      )}
-      <div className="map-topline">
-        <div className="map-mode">
-          <button
-            className={compare ? 'active' : ''}
-            onClick={onCompare}
-            disabled={!bundle.compatible}
-          >
-            <ArrowLeftRight size={15} />
-            {compare ? 'Salir de la comparación' : 'Comparar observaciones'}
-          </button>
-        </div>
-      </div>
-      {!bundle.compatible && (
-        <div className="incompatible">
-          <DataStatus
-            kind="incompatible"
-            title="Observaciones no comparables"
-            detail="Las observaciones de antes y después no se pueden comparar."
-          />
-        </div>
-      )}
-      <button
-        ref={priorityTrigger}
-        className="priority-toggle"
-        aria-label={`Mostrar u ocultar el top ${TOP_COUNT} del orden de revisión`}
-        aria-expanded={priorityOpen}
-        aria-controls="map-popovers"
-        onClick={onPriority}
-      >
-        <Triangle size={14} /> Top {TOP_COUNT}
-      </button>
-      {(controls || priorityOpen) && (
+      <div className="map-stage">
+        <div className="map-canvas" ref={baseContainer} />
         <div
-          className="left-panels floating-map-popovers"
-          ref={popover}
-          id="map-popovers"
+          className="comparison-map"
+          style={{
+            clipPath: `inset(0 ${100 - split}% 0 0)`,
+            visibility: compare ? 'visible' : 'hidden',
+          }}
         >
-          {controls && (
+          <div className="map-canvas" ref={beforeContainer} />
+        </div>
+        {mapError && (
+          <div className="map-fallback">
+            <DataStatus
+              kind="connection"
+              title="El mapa interactivo no está disponible"
+              detail="Este navegador no pudo dibujar el mapa. Elige una zona de la lista para ver por qué se sugiere revisarla."
+            />
+            {top.map((c) => (
+              <button key={c.id} onClick={() => onSelect(c)}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {!ready && !mapError && (
+          <div className="map-loading" role="status">
+            Cargando el mapa…
+          </div>
+        )}
+        {!bundle.compatible && (
+          <div className="incompatible">
+            <DataStatus
+              kind="incompatible"
+              title="Imágenes no comparables"
+              detail="Las imágenes de antes y después no se pueden comparar entre sí."
+            />
+          </div>
+        )}
+        {controls && (
+          <div
+            className="left-panels floating-map-popovers"
+            ref={popover}
+            id="map-popovers"
+          >
             <MapLayerControls
               expanded={controls}
               onExpand={onControls}
@@ -538,271 +476,182 @@ export function MapExplorer({
               opacity={opacity}
               onOpacity={setOpacity}
             />
-          )}
-          {priorityOpen && (
-            <section className="panel priority-panel">
-              <button
-                className="panel-heading"
-                onClick={onPriority}
-                aria-expanded={priorityOpen}
-              >
-                <span>
-                  <Triangle size={14} /> Orden de revisión sugerido{' '}
-                  <span className="count">{top.length}</span>
-                </span>
-                {priorityOpen ? (
-                  <ChevronUp size={15} />
-                ) : (
-                  <ChevronDown size={15} />
-                )}
-              </button>
-              {priorityOpen && (
-                <div className="priority-body">
-                  <p>Celdas para revisar primero en campo</p>
-                  {top.map((c) => (
-                    <button
-                      className={`priority-row ${selected?.id === c.id ? 'selected' : ''}`}
-                      key={c.id}
-                      onClick={() => select(c)}
-                    >
-                      <span className={`rank rank-${c.rank}`}>{c.rank}</span>
-                      <span>
-                        <strong>{c.id}</strong>
-                        <small>
-                          Puntaje {c.score === null ? '—' : c.score.toFixed(2)}{' '}
-                          · {c.statusLabel}
-                        </small>
-                      </span>
-                      <span className="priority-arrow">↗</span>
-                    </button>
-                  ))}
-                  <span className="list-note">
-                    Orden publicado en los bloques firmados del bundle
-                  </span>
-                </div>
-              )}
-            </section>
-          )}
-          <details className="study-info panel">
-            <summary>Área de estudio</summary>
-            <span className="section-caption">ÁREA DE ESTUDIO</span>
-            <strong>{bundle.aoiName}</strong>
-            <span>Revisión de cambios en superficie</span>
-            <span className="study-coordinates">
-              {((south + north) / 2).toFixed(2)}° lat &nbsp;{' '}
-              {((west + east) / 2).toFixed(2)}° lon
-            </span>
-          </details>
-        </div>
-      )}
-      {compare && (
-        <>
-          <div className="comparison-label before">
-            <strong>Antes (t1)</strong>
-            <span>{readableDate(bundle.before.date)}</span>
           </div>
-          <div className="comparison-label after">
-            <strong>Después (t2)</strong>
-            <span>{readableDate(bundle.after.date)}</span>
-          </div>
-          <div
-            className="compare-divider"
-            style={{ left: `${split}%` }}
-            role="slider"
-            tabIndex={0}
-            aria-label="Arrastra el divisor de antes y después"
-            aria-valuemin={10}
-            aria-valuemax={90}
-            aria-valuenow={Math.round(split)}
-            onPointerDown={(event) => {
-              event.preventDefault()
-              event.currentTarget.setPointerCapture(event.pointerId)
-            }}
-            onPointerMove={(event) => {
-              if (!event.currentTarget.hasPointerCapture(event.pointerId))
-                return
-              const rect = baseContainer.current?.getBoundingClientRect()
-              if (rect?.width)
-                setSplit(
-                  Math.max(
-                    10,
-                    Math.min(
-                      90,
-                      ((event.clientX - rect.left) / rect.width) * 100,
-                    ),
-                  ),
-                )
-            }}
-            onPointerUp={(event) => {
-              if (event.currentTarget.hasPointerCapture(event.pointerId))
-                event.currentTarget.releasePointerCapture(event.pointerId)
-            }}
-            onKeyDown={(event) => {
-              if (
-                !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)
-              )
-                return
-              event.preventDefault()
-              setSplit((value) =>
-                event.key === 'Home'
-                  ? 10
-                  : event.key === 'End'
-                    ? 90
-                    : Math.max(
-                        10,
-                        Math.min(
-                          90,
-                          value + (event.key === 'ArrowLeft' ? -1 : 1),
-                        ),
-                      ),
-              )
-            }}
-          >
-            <span>
-              <ArrowLeftRight size={20} />
-            </span>
-          </div>
-          <input
-            className="compare-slider"
-            aria-label="Divisor de la comparación de antes y después"
-            type="range"
-            min="10"
-            max="90"
-            value={split}
-            onChange={(e) => setSplit(+e.target.value)}
-          />
-        </>
-      )}
-      <div className="map-tools">
-        <button aria-label="Acercar" onClick={() => maps.current[0]?.zoomIn()}>
-          <Plus size={18} />
-        </button>
-        <button aria-label="Alejar" onClick={() => maps.current[0]?.zoomOut()}>
-          <Minus size={18} />
-        </button>
-        <span />
-        <button
-          aria-label="Volver a encuadrar el área de estudio"
-          onClick={() =>
-            maps.current[0]?.fitBounds(
-              [
-                [west, south],
-                [east, north],
-              ],
-              { padding: MAP_PADDING, bearing: 0, pitch: 0 },
-            )
-          }
-        >
-          <Crosshair size={18} />
-        </button>
-      </div>
-      <div className="north">
-        <span>N</span>
-        <Triangle size={19} fill="currentColor" />
-      </div>
-      <section
-        className="observation-bar panel"
-        aria-label="Comparación de observaciones"
-      >
-        <div className="observation-heading">
-          <span className="observation-icon">
-            <SlidersHorizontal size={18} />
-          </span>
-          <div>
-            <strong>Comparación de observaciones</strong>
-            <span>{pairNote}</span>
-          </div>
-        </div>
-        <div className="observation-dates">
-          <span>
-            <small>ANTES · t1</small>
-            <time dateTime={bundle.before.date}>
-              {readableDate(bundle.before.date)}
-            </time>
-          </span>
-          <div className="comparison-summary">
-            {compare ? (
-              <>
-                <label htmlFor="observation-split">
-                  División {Math.round(split)}%
-                </label>
-                <input
-                  id="observation-split"
-                  aria-label="Posición de comparación"
-                  type="range"
-                  min="10"
-                  max="90"
-                  value={split}
-                  onChange={(event) => setSplit(+event.target.value)}
-                />
-              </>
-            ) : (
-              <button
-                onClick={onCompare}
-                disabled={!bundle.compatible}
-                aria-label="Activar comparación de observaciones"
-              >
-                <ArrowLeftRight size={16} /> Comparar
-              </button>
-            )}
-          </div>
-          <span>
-            <small>DESPUÉS · t2</small>
-            <time dateTime={bundle.after.date}>
-              {readableDate(bundle.after.date)}
-            </time>
-          </span>
-        </div>
-        <span className="pair-status">
-          <span className="status-dot" /> {pairNote}
-        </span>
-      </section>
-      <section className="panel map-legend">
-        <button
-          className="legend-heading"
-          onClick={() => setLegendOpen(!legendOpen)}
-          aria-expanded={legendOpen}
-        >
-          <span>Leyenda del mapa</span>
-          {legendOpen ? <Minus size={12} /> : <Plus size={12} />}
-        </button>
-        {legendOpen && (
+        )}
+        {compare && (
           <>
-            {!compare && layers.grid ? (
-              <>
-                <div className="change-legend">
-                  {STATUS_LEGEND.map(([status, label]) => (
-                    <span key={status}>
-                      <i style={{ background: STATUS_FILL[status] }} /> {label}
-                    </span>
-                  ))}
-                </div>
-                <p>Orden de revisión sugerido · No es un pronóstico</p>
-              </>
-            ) : (
-              <p>
-                {compare
-                  ? 'Observaciones de antes y después'
-                  : 'Las celdas de análisis están ocultas'}
-              </p>
-            )}
-            <div className="legend-key">
-              <span /> Límite del área{' '}
-              {layers.water && (
-                <>
-                  <i /> Vías
-                </>
-              )}
+            <div className="comparison-label before">
+              <strong>Antes</strong>
+              <span>{readableDate(bundle.before.date)}</span>
+            </div>
+            <div className="comparison-label after">
+              <strong>Después</strong>
+              <span>{readableDate(bundle.after.date)}</span>
+            </div>
+            <div
+              className="compare-divider"
+              style={{ left: `${split}%` }}
+              role="slider"
+              tabIndex={0}
+              aria-label="Arrastra el divisor de antes y después"
+              aria-valuemin={10}
+              aria-valuemax={90}
+              aria-valuenow={Math.round(split)}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                event.currentTarget.setPointerCapture(event.pointerId)
+              }}
+              onPointerMove={(event) => {
+                if (!event.currentTarget.hasPointerCapture(event.pointerId))
+                  return
+                const rect = baseContainer.current?.getBoundingClientRect()
+                if (rect?.width)
+                  setSplit(
+                    Math.max(
+                      10,
+                      Math.min(
+                        90,
+                        ((event.clientX - rect.left) / rect.width) * 100,
+                      ),
+                    ),
+                  )
+              }}
+              onPointerUp={(event) => {
+                if (event.currentTarget.hasPointerCapture(event.pointerId))
+                  event.currentTarget.releasePointerCapture(event.pointerId)
+              }}
+              onKeyDown={(event) => {
+                if (
+                  !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(
+                    event.key,
+                  )
+                )
+                  return
+                event.preventDefault()
+                setSplit((value) =>
+                  event.key === 'Home'
+                    ? 10
+                    : event.key === 'End'
+                      ? 90
+                      : Math.max(
+                          10,
+                          Math.min(
+                            90,
+                            value + (event.key === 'ArrowLeft' ? -1 : 1),
+                          ),
+                        ),
+                )
+              }}
+            >
+              <span>
+                <ArrowLeftRight size={20} />
+              </span>
             </div>
           </>
         )}
-      </section>
-      {selected && (
-        <button className="selection-chip" onClick={() => onSelect(selected)}>
-          <span className="status-dot" /> Seleccionada {selected.id}
-          <X size={12} className="hidden-icon" />
-        </button>
-      )}
+        <div className="map-tools">
+          <button
+            aria-label="Acercar"
+            onClick={() => maps.current[0]?.zoomIn()}
+          >
+            <Plus size={18} />
+          </button>
+          <button
+            aria-label="Alejar"
+            onClick={() => maps.current[0]?.zoomOut()}
+          >
+            <Minus size={18} />
+          </button>
+          <span />
+          <button
+            aria-label="Volver a encuadrar el área de estudio"
+            onClick={() =>
+              maps.current[0]?.fitBounds(
+                [
+                  [west, south],
+                  [east, north],
+                ],
+                { padding: MAP_PADDING, bearing: 0, pitch: 0 },
+              )
+            }
+          >
+            <Crosshair size={18} />
+          </button>
+        </div>
+        <div className="north">
+          <span>N</span>
+          <Triangle size={19} fill="currentColor" />
+        </div>
+      </div>
+      {/* Barra inferior acoplada: fechas del par y leyenda. No tapa el mapa. */}
+      <div className="map-dock">
+        <section
+          className="observation-bar panel"
+          aria-label="Antes y después"
+        >
+          <div className="observation-heading">
+            <span className="observation-icon">
+              <SlidersHorizontal size={18} />
+            </span>
+            <div>
+              <strong>Antes y después</strong>
+              <span>{pairNote}</span>
+            </div>
+          </div>
+          <div className="observation-dates">
+            <span>
+              <small>ANTES</small>
+              <time dateTime={bundle.before.date}>
+                {readableDate(bundle.before.date)}
+              </time>
+            </span>
+            <div className="comparison-summary">
+              {compare ? (
+                <>
+                  <label htmlFor="observation-split">
+                    División {Math.round(split)}%
+                  </label>
+                  <input
+                    id="observation-split"
+                    aria-label="Posición de la comparación"
+                    type="range"
+                    min="10"
+                    max="90"
+                    value={split}
+                    onChange={(event) => setSplit(+event.target.value)}
+                  />
+                </>
+              ) : (
+                <button
+                  onClick={onCompare}
+                  disabled={!bundle.compatible}
+                  aria-label="Comparar las imágenes de antes y después"
+                >
+                  <ArrowLeftRight size={16} /> Comparar
+                </button>
+              )}
+            </div>
+            <span>
+              <small>DESPUÉS</small>
+              <time dateTime={bundle.after.date}>
+                {readableDate(bundle.after.date)}
+              </time>
+            </span>
+          </div>
+        </section>
+        <section className="panel map-legend" aria-label="Leyenda del mapa">
+          <div className="change-legend">
+            {STATUS_LEGEND.map(([status, label]) => (
+              <span key={status}>
+                <i style={{ background: STATUS_FILL[status] }} /> {label}
+              </span>
+            ))}
+          </div>
+          <p>
+            El color indica el orden de revisión sugerido. No es un pronóstico.
+          </p>
+        </section>
+      </div>
     </section>
   )
 }
