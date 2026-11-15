@@ -1,0 +1,15 @@
+{
+  "synced_at": "2026-11-15T16:22:37.378Z",
+  "aoi_id": "tailandia-01",
+  "bundle_version": "v1",
+  "contract_version": "1.1.0",
+  "generated_at": "2026-11-15T15:17:54Z",
+  "data_origin": "nisar_real",
+  "source": "../AppData/Local/Temp/claude/a7ed3951a23e24c4/3579fa64-9613-4903-a62c-334c11b331d7/scratchpad/core/repo/data/tailandia-01/v1",
+  "issuers": [
+    "ed25519:277cfe8e61989939675d9ac3412bc37f1316d0ad4cca235b1e3124a521aed8fc"
+  ],
+  "files_checked": 614,
+  "blocks_verified": 605,
+  "verdict": "ok"
+}

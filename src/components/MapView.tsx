@@ -17,7 +17,15 @@
  */
 import { useEffect, useRef } from "react";
 import * as maplibregl from "maplibre-gl";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+// MapLibre v6 necesita que Vite empaquete su worker y que se le diga dónde
+// quedó. Sin esto el worker no carga, y como MapLibre parsea y dibuja ahí, el
+// mapa queda en negro: ni overlays ni celdas, aunque el bundle verifique bien.
+// La ruta la resuelve Vite contra la base del despliegue, así que también
+// funciona servido bajo /wombat-dashboard/.
+maplibregl.setWorkerUrl(workerUrl);
 
 import type { LoadedBundle } from "../bundle/types.ts";
 import type { OverlayKey } from "./statusColors.ts";
@@ -64,16 +72,13 @@ export function MapView({ bundle, overlay, selectedCellId, onSelectCell }: MapVi
       // bytes ya están verificados y en memoria; volver a crear la fuente en
       // cada cambio obligaría a reconstruir el blob sin ninguna ganancia.
       for (const key of ["t1", "t2", "delta"] as OverlayKey[]) {
-        const [w, s, e, n] = bundle.overlays.bounds;
         instance.addSource(`overlay-${key}`, {
           type: "image",
           url: bundle.overlays[key],
-          coordinates: [
-            [w, s],
-            [e, s],
-            [e, n],
-            [w, n],
-          ],
+          // Las esquinas vienen de overlays/bounds.json en el mismo orden que
+          // pide MapLibre (arriba-izquierda, arriba-derecha, abajo-derecha,
+          // abajo-izquierda), así que se pasan sin reordenar.
+          coordinates: bundle.overlays.bounds,
         });
         instance.addLayer({
           id: `overlay-${key}`,

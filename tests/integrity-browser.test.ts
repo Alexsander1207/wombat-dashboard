@@ -35,7 +35,11 @@ beforeAll(() => {
       aoi: "piura-demo",
       version: "v0",
       source: "../Wombat-core/contracts/v1/fixtures/bundle",
-      issuers: TRUSTED_ISSUERS.map((i) => ({ issuer: i.issuer, roles: i.roles })),
+      // dashboard.config.json guarda las claves pinneadas como CADENAS, igual
+      // que las consume scripts/sync-data.mjs. El mock tiene que usar esa misma
+      // forma: cuando no lo hacía, App.tsx fallaba en producción con "emisores
+      // no autorizados" y la suite seguía en verde.
+      issuers: TRUSTED_ISSUERS.map((i) => i.issuer),
     }],
   });
 

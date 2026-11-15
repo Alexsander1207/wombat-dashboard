@@ -29,6 +29,7 @@ import type {
   BundleAction,
   BundleManifest,
   BundleOverlays,
+  OverlayCorner,
 } from "./types.ts";
 import { BundleContractError, type LoadedBundle } from "./types.ts";
 
@@ -112,16 +113,34 @@ function decodeOverlays(
   rawBounds: unknown,
   blobUrls: { t1: string; t2: string; delta: string },
 ): BundleOverlays {
-  const b = rawBounds as { coordinates: unknown[] };
-  const coords = b.coordinates as [number, number, number, number] | undefined;
-  if (!coords || coords.length !== 4) {
-    throw new BundleContractError("overlays/bounds.json malformado");
+  const b = rawBounds as { coordinates?: unknown };
+  const raw = b.coordinates;
+  if (!Array.isArray(raw) || raw.length !== 4) {
+    throw new BundleContractError(
+      "overlays/bounds.json malformado: se esperan 4 esquinas",
+    );
   }
+  // Cada entrada es una esquina [lon, lat]. El length === 4 por sí solo no
+  // distingue 4 esquinas de un bbox plano de 4 números, y esa confusión dejaba
+  // los overlays sin dibujar: hay que comprobar la forma de cada elemento.
+  const corners = raw.map((corner, i) => {
+    if (
+      !Array.isArray(corner) ||
+      corner.length !== 2 ||
+      !corner.every((n) => typeof n === "number" && Number.isFinite(n))
+    ) {
+      throw new BundleContractError(
+        `overlays/bounds.json malformado: la esquina ${i} no es [lon, lat]`,
+      );
+    }
+    return [corner[0], corner[1]] as OverlayCorner;
+  }) as [OverlayCorner, OverlayCorner, OverlayCorner, OverlayCorner];
+
   return {
     t1: blobUrls.t1,
     t2: blobUrls.t2,
     delta: blobUrls.delta,
-    bounds: coords,
+    bounds: corners,
   };
 }
 

@@ -45,12 +45,25 @@ export interface BundleManifest {
   bboxWgs84: [number, number, number, number];
 }
 
+/** Una esquina del overlay en WGS84: [lon, lat]. */
+export type OverlayCorner = [number, number];
+
 /** Overlays listos para el mapa (blobs de bytes ya verificados). */
 export interface BundleOverlays {
   t1: string;
   t2: string;
   delta: string;
-  bounds: [number, number, number, number];
+  /**
+   * Las CUATRO ESQUINAS de la imagen, en el orden que declara
+   * overlays/bounds.json: arriba-izquierda, arriba-derecha, abajo-derecha,
+   * abajo-izquierda. Es el mismo orden que espera `coordinates` de una fuente
+   * `image` de MapLibre, así que se pasa tal cual.
+   *
+   * NO es un bbox plano [oeste, sur, este, norte]: para eso está
+   * `BundleManifest.bboxWgs84`. Confundirlos es lo que impedía que los tres
+   * overlays se dibujaran.
+   */
+  bounds: [OverlayCorner, OverlayCorner, OverlayCorner, OverlayCorner];
 }
 
 /** Un registro de celda listo para la UI. */
