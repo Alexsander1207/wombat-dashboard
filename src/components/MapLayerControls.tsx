@@ -11,18 +11,18 @@ const options = [
     id: 'change',
     label: 'Cambios en superficie',
     description:
-      'Muestra la capa de cambio del radar (diferencia entre las dos observaciones NISAR) del bundle verificado.',
+      'Muestra la capa de cambio del radar (diferencia entre las dos pasadas del satélite NISAR).',
   },
   {
     id: 'water',
-    label: 'Vías (OpenStreetMap)',
-    description: 'Muestra las vías de OpenStreetMap incluidas en el bundle.',
+    label: 'Caminos',
+    description: 'Muestra los caminos de OpenStreetMap incluidos en los datos.',
   },
   {
     id: 'grid',
-    label: 'Celdas de análisis',
+    label: 'Zonas de revisión',
     description:
-      'Muestra las celdas de análisis coloreadas según su lugar en el orden de revisión sugerido. Selecciona una celda para ver su evidencia.',
+      'Muestra las zonas coloreadas según su lugar en el orden de revisión sugerido. Toca una zona para ver por qué.',
   },
 ] as const
 
@@ -113,11 +113,11 @@ export function MapLayerControls({
                 ? 'Disponible fuera del modo de comparación.'
                 : !layers.change
                   ? 'Activa Cambios en superficie para ajustar su opacidad.'
-                  : 'Bájala para ver mejor las celdas.'}
+                  : 'Bájala para ver mejor las zonas.'}
             </p>
           </div>
           <p className="fixture-note">
-            Capas del bundle verificado · instantánea estática
+            Capas de los datos verificados · imagen fija, no en vivo
           </p>
         </div>
       )}
