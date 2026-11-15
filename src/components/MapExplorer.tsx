@@ -61,6 +61,7 @@ function mapPalette() {
 
 /** Margen del encuadre: los paneles ya no flotan sobre el mapa. */
 const MAP_PADDING = 36
+let mapInstanceSequence = 0
 
 /**
  * La opacidad también sigue el orden de revisión: lo que hay que mirar
@@ -154,8 +155,9 @@ export function MapExplorer({
       const [w, s, e, n] = bundle.bounds
       const topCells = bundle.ranked.slice(0, TOP_COUNT)
       const makeMap = (container: HTMLDivElement, before: boolean) => {
-        const startedAt = `wombat:map:${before ? 'comparison' : 'base'}:start`
-        const loadedAt = `wombat:map:${before ? 'comparison' : 'base'}:loaded`
+        const mapId = ++mapInstanceSequence
+        const startedAt = `wombat:map:${mapId}:start`
+        const loadedAt = `wombat:map:${mapId}:loaded`
         performance.mark(startedAt)
         const map = new maplibregl.Map({
           container,
@@ -164,7 +166,7 @@ export function MapExplorer({
             [e, n],
           ],
           fitBoundsOptions: { padding: MAP_PADDING },
-          minZoom: 8,
+          minZoom: 5,
           maxZoom: 17,
           attributionControl: {},
           style: {
