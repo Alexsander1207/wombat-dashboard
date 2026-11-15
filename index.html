@@ -5,7 +5,13 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./brand/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="64x64" href="./brand/favicon-64.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+    />
     <meta name="theme-color" content="#214B7D" />
     <!--
       Pantalla de carga. Vive aquí, y no en el CSS de la app, porque tiene que
@@ -15,7 +21,11 @@
       "esperando" a mostrar el avance real.
     -->
     <style>
-      html { background: #14213c; }
+      /* Tema según el sistema: oscuro por defecto, claro si el sistema lo pide. */
+      html { background: #14213c; --boot-ink: #eef5ff; --boot-track: rgba(118, 207, 223, 0.16); --boot-bar: #76cfdf; }
+      @media (prefers-color-scheme: light) {
+        html { background: #edf1f7; --boot-ink: #14263d; --boot-track: rgba(11, 114, 133, 0.18); --boot-bar: #0b7285; }
+      }
       .boot-loader {
         position: fixed;
         inset: 0;
@@ -32,7 +42,7 @@
         box-sizing: border-box;
         display: grid;
         gap: 12px;
-        color: #eef5ff;
+        color: var(--boot-ink);
       }
       /* El wombat: centrado sobre el texto. Con "reducir movimiento" el
          <picture> elige un cuadro fijo en vez de la animación. */
@@ -47,8 +57,9 @@
       }
       .boot-loader-title {
         margin: 0;
+        font-family: 'Space Grotesk', Inter, 'Segoe UI', Arial, sans-serif;
         font-size: 17px;
-        font-weight: 650;
+        font-weight: 600;
         letter-spacing: -0.01em;
         text-align: center;
       }
@@ -56,7 +67,7 @@
         height: 6px;
         overflow: hidden;
         border-radius: 999px;
-        background: rgba(118, 207, 223, 0.16);
+        background: var(--boot-track);
       }
       /* El avance recorta la barra desde la derecha: los extremos siguen
          redondeados y solo se anima clip-path, sin recalcular el diseño. */
@@ -64,7 +75,7 @@
         display: block;
         height: 100%;
         border-radius: inherit;
-        background: #76cfdf;
+        background: var(--boot-bar);
         clip-path: inset(0 calc(100% - var(--progress, 0) * 100%) 0 0 round 999px);
         transition: clip-path 240ms cubic-bezier(0.23, 1, 0.32, 1);
       }

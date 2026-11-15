@@ -24,20 +24,20 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
-  color: #b6c7d8;
+  font-size: 11px;
+  color: var(--ocean-muted, #b6c7d8);
 }
 .live-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #8a9bb0;
+  background: var(--ocean-muted, #8a9bb0);
 }
 .live-online .live-dot {
-  background: #4fd1a5;
+  background: var(--ocean-ok, #4fd1a5);
 }
 .live-offline .live-dot {
-  background: #e97873;
+  background: var(--ocean-coral, #e97873);
 }
 .explorer-integrity .live-line {
   display: flex;
@@ -49,12 +49,12 @@
   padding: 1px 7px;
   border: 1px solid var(--ocean-border, rgba(213, 229, 232, 0.24));
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
 }
 .live-origin.is-simulated {
-  color: #f4d58a;
+  color: var(--ocean-warn-ink, #f4d58a);
   border: 1px dashed currentColor;
 }
 .live-history {
@@ -64,8 +64,8 @@
   border-top: 1px solid var(--ocean-border, rgba(213, 229, 232, 0.24));
   display: grid;
   gap: 2px;
-  font-size: 10px;
-  color: #b6c7d8;
+  font-size: 11px;
+  color: var(--ocean-muted, #b6c7d8);
   max-height: 44px;
   overflow: auto;
 }
