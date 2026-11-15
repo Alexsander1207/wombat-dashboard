@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+*.env
+.env*
 *.local
 
 # Editor directories and files
@@ -28,3 +30,4 @@ dist-ssr
 # inmutable por versión (R28). Duplicarlo acá crearía una segunda copia que
 # podría divergir de la firmada, que es exactamente lo que el contrato evita.
 public/data/
+

@@ -14,6 +14,7 @@ import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 
 const BUNDLE_DIR = join(process.cwd(), "public", "bundles", "piura-demo", "v0");
+const TEST_FIXTURE_DIR = join(process.cwd(), "tests", "fixtures", "test-aoi", "v0");
 const TRUSTED_ISSUERS = [
   {
     issuer: "ed25519:92b8169774b5f100de3f37b5ec63b9a10100ae6d1983c4bbdc9b9e7ca6f014be",
@@ -49,7 +50,7 @@ function makeReadBytes(dir: string) {
 
 async function updateIndexHash(dir: string, filePath: string): Promise<void> {
   const index = JSON.parse(await readFile(join(dir, "index.json"), "utf8"));
-  const bytes = await readFile(join(dir, filePath));
+  const bytes = new Uint8Array(await readFile(join(dir, filePath)));
   const hex = bytesToHex(sha256(bytes));
   for (const entry of index.files) {
     if (entry.path === filePath) {
@@ -120,6 +121,14 @@ describe("(a) contrato", () => {
     expect(bundle.t1).toBe("2026-10-14T23:00:00Z");
     expect(bundle.t2).toBe("2026-10-26T23:00:00Z");
     expect(bundle.integrityWarning).toBeNull();
+  });
+
+  it("el fixture de test-aoi también verifica correctamente (multi-AOI)", async () => {
+    const bundle = await loadAndVerify(TEST_FIXTURE_DIR, TRUSTED_ISSUERS, makeReadBytes(TEST_FIXTURE_DIR));
+    expect(bundle.verification.filesOk).toBe(true);
+    expect(bundle.verification.filesChecked).toBeGreaterThan(0);
+    expect(bundle.verification.blocksOk).toBe(true);
+    expect(bundle.verification.blocksChecked).toBeGreaterThan(0);
   });
 });
 

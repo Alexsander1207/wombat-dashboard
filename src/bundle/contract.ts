@@ -34,11 +34,11 @@ import { BundleContractError, type LoadedBundle } from "./types.ts";
 
 export type { LoadedBundle } from "./types.ts";
 
-type ReadBytes = (path: string) => Promise<Uint8Array>;
+type ReadBytes = (path: string, signal?: AbortSignal) => Promise<Uint8Array>;
 
-async function defaultReadBytes(base: string): Promise<ReadBytes> {
-  return async (path: string): Promise<Uint8Array> => {
-    const response = await fetch(`${base}/${path}`, { cache: "no-store" });
+async function defaultReadBytes(base: string, signal?: AbortSignal): Promise<ReadBytes> {
+  return async (path: string, sig?: AbortSignal): Promise<Uint8Array> => {
+    const response = await fetch(`${base}/${path}`, { cache: "no-store", signal: sig ?? signal });
     if (!response.ok) {
       throw new BundleContractError(
         `No se pudo leer ${path} (HTTP ${response.status})`,
@@ -239,12 +239,13 @@ export async function loadAndVerify(
   baseUrl: string,
   trustedIssuers: { issuer: string; roles: string[] }[],
   readBytes?: ReadBytes,
+  signal?: AbortSignal,
 ): Promise<LoadedBundle> {
   const base = baseUrl.replace(/\/$/, "");
-  const read = readBytes ?? (await defaultReadBytes(base));
+  const read = readBytes ?? (await defaultReadBytes(base, signal));
 
   // ── 1. index.json + puerta de versión ──────────────────────────────
-  const indexBytes = await read("index.json");
+  const indexBytes = await read("index.json", signal);
   const index = jsonOf<BundleIndex>(indexBytes);
   checkContractVersion(index);
 
@@ -258,10 +259,10 @@ export async function loadAndVerify(
   }
 
   // ── 3. Parsear archivos (solo después de verificar bytes) ──────────
-  const manifestRaw = jsonOf<unknown>(await read("manifest.json"));
-  const cellsRaw = jsonOf<unknown>(await read("cells.geojson"));
-  const boundsRaw = jsonOf<unknown>(await read("overlays/bounds.json"));
-  const roadsRaw = jsonOf<unknown>(await read("roads.geojson"));
+  const manifestRaw = jsonOf<unknown>(await read("manifest.json", signal));
+  const cellsRaw = jsonOf<unknown>(await read("cells.geojson", signal));
+  const boundsRaw = jsonOf<unknown>(await read("overlays/bounds.json", signal));
+  const roadsRaw = jsonOf<unknown>(await read("roads.geojson", signal));
 
   const blockPaths = index.files
     .map((f) => f.path)
@@ -270,7 +271,7 @@ export async function loadAndVerify(
   const blocks = await Promise.all(
     blockPaths.map(async (path) => ({
       path,
-      block: jsonOf<WonbBlock>(await read(path)),
+      block: jsonOf<WonbBlock>(await read(path, signal)),
     })),
   );
 
@@ -350,9 +351,9 @@ export async function loadAndVerify(
 
   // ── 10. Overlays (blobs sobre bytes verificados) ───────────────────
   const [t1Blob, t2Blob, deltaBlob] = await Promise.all([
-    read("overlays/t1.png"),
-    read("overlays/t2.png"),
-    read("overlays/delta.png"),
+    read("overlays/t1.png", signal),
+    read("overlays/t2.png", signal),
+    read("overlays/delta.png", signal),
   ]);
   const blobUrls = {
     t1: URL.createObjectURL(new Blob([t1Blob], { type: "image/png" })),
