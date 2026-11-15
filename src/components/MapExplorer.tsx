@@ -10,7 +10,7 @@
  *   servidor externo, y el dashboard tiene que funcionar estático y sin red.
  *   El fondo es un color y encima van los bytes del bundle.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import {
@@ -113,6 +113,7 @@ export function MapExplorer({
   const scheme = useColorScheme()
   const popover = useRef<HTMLDivElement>(null)
   const top = bundle.ranked.slice(0, TOP_COUNT)
+  const cellsById = useMemo(() => new Map(bundle.cells.map((cell) => [cell.id, cell])), [bundle.cells])
   const [west, south, east, north] = bundle.bounds
   useEffect(() => {
     if (!controls) return
@@ -140,7 +141,7 @@ export function MapExplorer({
     selectRef.current = onSelect
   }, [onSelect])
   useEffect(() => {
-    if (!baseContainer.current || !beforeContainer.current) return
+    if (!baseContainer.current || (compare && !beforeContainer.current)) return
     let disposed = false,
       syncing = false
     const markers: maplibregl.Marker[] = []
@@ -149,6 +150,9 @@ export function MapExplorer({
       const [w, s, e, n] = bundle.bounds
       const topCells = bundle.ranked.slice(0, TOP_COUNT)
       const makeMap = (container: HTMLDivElement, before: boolean) => {
+        const startedAt = `wombat:map:${before ? 'comparison' : 'base'}:start`
+        const loadedAt = `wombat:map:${before ? 'comparison' : 'base'}:loaded`
+        performance.mark(startedAt)
         const map = new maplibregl.Map({
           container,
           bounds: [
@@ -173,6 +177,8 @@ export function MapExplorer({
         })
         map.on('load', () => {
           if (disposed) return
+          performance.mark(loadedAt)
+          performance.measure(`wombat:map:${before ? 'comparison' : 'base'}:load`, startedAt, loadedAt)
           const coords = bundle.coordinates
           map.addSource('grid', { type: 'geojson', data: bundle.grid })
           map.addSource('roads', {
@@ -319,7 +325,7 @@ export function MapExplorer({
             const id = map.queryRenderedFeatures(event.point, {
               layers: ['hit-area'],
             })[0]?.properties?.id
-            const c = bundle.cells.find((cell) => cell.id === id)
+            const c = id == null ? undefined : cellsById.get(String(id))
             if (c) selectRef.current(c)
           })
           map.on('mouseenter', 'hit-area', () => {
@@ -364,9 +370,10 @@ export function MapExplorer({
         return map
       }
       const base = makeMap(baseContainer.current, false)
-      maps.current = [base]
-      const before = makeMap(beforeContainer.current, true)
-      maps.current.push(before)
+      const before = compare && beforeContainer.current
+        ? makeMap(beforeContainer.current, true)
+        : null
+      maps.current = before ? [base, before] : [base]
       const sync = (source: maplibregl.Map, target: maplibregl.Map) => {
         if (syncing) return
         syncing = true
@@ -378,19 +385,22 @@ export function MapExplorer({
         })
         syncing = false
       }
-      base.on('move', () => sync(base, before))
-      before.on('move', () => sync(before, base))
+      if (before) {
+        base.on('move', () => sync(base, before))
+        before.on('move', () => sync(before, base))
+      }
       const observer = new ResizeObserver(() => {
         base.resize()
-        before.resize()
+        before?.resize()
       })
       observer.observe(baseContainer.current)
+      if (compare && beforeContainer.current) observer.observe(beforeContainer.current)
       return () => {
         disposed = true
         observer.disconnect()
         markers.forEach((m) => m.remove())
         base.remove()
-        before.remove()
+        before?.remove()
         maps.current = []
         setReady(0)
       }
@@ -404,7 +414,7 @@ export function MapExplorer({
     return () => {
       disposed = true
     }
-  }, [bundle])
+  }, [bundle, compare])
   useEffect(() => {
     if (!ready) return
     for (const [i, map] of maps.current.entries()) {
