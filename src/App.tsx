@@ -122,6 +122,9 @@ export default function App() {
     setLoading(true)
     setError(null)
     setSelected(null)
+    // Lo que se eligió para un área no vale para la siguiente.
+    setCompare(false)
+    setControls(false)
 
     const base = `${import.meta.env.BASE_URL}bundles/${selectedBundle.aoi}/${selectedBundle.version}`
     // Los roles NO se leen del trusted-issuers.json que viaja dentro del
@@ -310,7 +313,7 @@ export default function App() {
                       setView(
                         destination === 'guide'
                           ? 'methodology'
-                          : destination === 'evidence'
+                          : destination === 'evidence' && selected
                             ? 'evidence'
                             : 'map',
                       )

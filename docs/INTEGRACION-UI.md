@@ -66,8 +66,9 @@ Reglas para las tres tareas:
 - Los estilos del Top 10 de Ximenacode ya están cargados: `src/styles/priorities.css`
   (importado desde `src/index.css`, con sus tokens en `src/styles/tokens.css`).
   Las filas de la lista (`.priority-row`, en `App.tsx`) y los marcadores
-  (`.cell-marker`, en `MapExplorer.tsx`) ya llevan `is-top-ten`, `is-first` y
-  `is-selected`. Falta `is-insufficient`, que hoy no aplica porque las zonas
+  (`.cell-marker`, en `MapExplorer.tsx`) ya llevan `is-top-ten` e `is-first`;
+  `is-selected` lo llevan solo las filas (la zona elegida se marca en el mapa
+  con su contorno, no en el marcador). Falta `is-insufficient`, que hoy no aplica porque las zonas
   sin datos suficientes no tienen puesto y no entran en la lista. Lo que pide
   `src/styles/priorities.md` sobre el número visible ya se cumple: es texto
   real tomado de `rank` del bloque `risk` firmado. `src/copy/es.ts` (textos de

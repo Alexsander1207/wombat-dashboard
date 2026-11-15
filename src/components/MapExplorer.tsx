@@ -95,6 +95,9 @@ export function MapExplorer({
     if (!controls) return
     const outside = (event: PointerEvent) => {
       if (!(event.target instanceof Element)) return
+      // El menú flotante abre y cierra este panel por su cuenta: si además
+      // contara como clic afuera, lo cerraría y lo volvería a abrir.
+      if (event.target.closest('.floating-navigation')) return
       if (!popover.current?.contains(event.target)) onControls()
     }
     const escape = (event: KeyboardEvent) => {

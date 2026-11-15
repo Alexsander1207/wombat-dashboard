@@ -95,7 +95,17 @@ export interface ExplorerData {
 
 const pct = (bp: number): number => bp / 100;
 const roundPct = (bp: number): number => Math.trunc((bp + 50) / 100);
-const km = (metres: number): string => (metres / 1000).toFixed(1);
+/**
+ * Metros → kilómetros con una décima, redondeando la mitad al par, que es como
+ * redondea el pipeline al escribir el texto firmado (2150 m → "2.2", 50 m → "0.0").
+ * Se hace con enteros para no depender del redondeo de coma flotante.
+ */
+const km = (metres: number): string => {
+  let tenths = Math.floor(metres / 100);
+  const rest = metres % 100;
+  if (rest > 50 || (rest === 50 && tenths % 2 === 1)) tenths += 1;
+  return `${Math.floor(tenths / 10)}.${tenths % 10}`;
+};
 
 function operaLabel(cell: BundleCell): string {
   const overlap = roundPct(cell.metrics.operaOverlapBp);
@@ -123,7 +133,7 @@ export function explainInSpanish(cell: BundleCell, config: RiskConfig | null): s
   }
   const db = config ? ` (${config.deltaDbThreshold} dB o más)` : "";
   const parts = [
-    `Entre las dos pasadas del satélite, la señal de radar bajó con fuerza${db} en ${roundPct(m.decreaseBp)} % de esta zona y subió en ${roundPct(m.increaseBp)} %.`,
+    `Entre las dos pasadas del satélite, la señal de radar bajó con fuerza${db} en ${roundPct(m.decreaseBp)} % de la superficie observada de esta zona y subió en ${roundPct(m.increaseBp)} %.`,
   ];
   const overlap = roundPct(m.operaOverlapBp);
   if (m.operaStatus === "corroborated") {
