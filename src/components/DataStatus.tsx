@@ -1,4 +1,4 @@
-﻿import { AlertCircle, LoaderCircle, Database } from 'lucide-react'
+import { AlertCircle, LoaderCircle, Database } from 'lucide-react'
 export type DataState =
   | 'loading'
   | 'static'

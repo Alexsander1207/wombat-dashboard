@@ -31,3 +31,6 @@ dist-ssr
 # podría divergir de la firmada, que es exactamente lo que el contrato evita.
 public/data/
 
+
+# Configuración local de Claude Code (skills, ajustes): no se versiona.
+.claude/

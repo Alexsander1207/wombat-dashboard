@@ -30,6 +30,9 @@ import type {
   BundleManifest,
   BundleOverlays,
   OverlayCorner,
+  RiskConfig,
+  SignedBlockRef,
+  SignedBlocks,
 } from "./types.ts";
 import { BundleContractError, type LoadedBundle } from "./types.ts";
 
@@ -37,9 +40,11 @@ export type { LoadedBundle } from "./types.ts";
 
 type ReadBytes = (path: string, signal?: AbortSignal) => Promise<Uint8Array>;
 
+let bundleLoadSequence = 0;
+
 async function defaultReadBytes(base: string, signal?: AbortSignal): Promise<ReadBytes> {
   return async (path: string, sig?: AbortSignal): Promise<Uint8Array> => {
-    const response = await fetch(`${base}/${path}`, { cache: "no-store", signal: sig ?? signal });
+    const response = await fetch(`${base}/${path}`, { cache: "default", signal: sig ?? signal });
     if (!response.ok) {
       throw new BundleContractError(
         `No se pudo leer ${path} (HTTP ${response.status})`,
@@ -261,7 +266,21 @@ export async function loadAndVerify(
   signal?: AbortSignal,
 ): Promise<LoadedBundle> {
   const base = baseUrl.replace(/\/$/, "");
-  const read = readBytes ?? (await defaultReadBytes(base, signal));
+  const perfId = ++bundleLoadSequence;
+  const perfStart = typeof performance !== "undefined" ? performance.now() : null;
+  const sourceRead = readBytes ?? (await defaultReadBytes(base, signal));
+
+  // Cada recurso se obtiene una sola vez. La misma promesa/bytes se reutiliza
+  // para SHA-256 y decodificación: no hay una segunda descarga ni una ventana
+  // en la que la verificación y el consumo puedan observar respuestas distintas.
+  const reads = new Map<string, Promise<Uint8Array>>();
+  const read: ReadBytes = (path, readSignal) => {
+    const cached = reads.get(path);
+    if (cached) return cached;
+    const pending = sourceRead(path, readSignal ?? signal);
+    reads.set(path, pending);
+    return pending;
+  };
 
   // ── 1. index.json + puerta de versión ──────────────────────────────
   const indexBytes = await read("index.json", signal);
@@ -269,15 +288,22 @@ export async function loadAndVerify(
   checkContractVersion(index);
 
   // ── 2. sha256 de cada archivo ──────────────────────────────────────
-  const files = await verifyFileHashes(index, read);
+  const files = await verifyFileHashes(index, read, 12);
   if (!files.ok) {
     throw new BundleContractError(
       `Integridad del bundle comprometida: ${files.failures.length} de ${files.checks.length} archivo(s) no coinciden`,
       files.failures.map((f) => `${f.path}: sha256 no coincide con index.json`),
     );
   }
+  if (perfStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:download-and-sha256`, {
+      start: perfStart,
+      end: performance.now(),
+    });
+  }
 
   // ── 3. Parsear archivos (solo después de verificar bytes) ──────────
+  const parseStart = perfStart === null ? null : performance.now();
   const manifestRaw = jsonOf<unknown>(await read("manifest.json", signal));
   const cellsRaw = jsonOf<unknown>(await read("cells.geojson", signal));
   const boundsRaw = jsonOf<unknown>(await read("overlays/bounds.json", signal));
@@ -294,7 +320,15 @@ export async function loadAndVerify(
     })),
   );
 
+  if (parseStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:parse-json`, {
+      start: parseStart,
+      end: performance.now(),
+    });
+  }
+
   // ── 4. Verificar bloques (hash + firma) ────────────────────────────
+  const blockVerifyStart = perfStart === null ? null : performance.now();
   const verdicts = verifyBlocks(blocks);
   if (!verdicts.ok) {
     throw new BundleContractError(
@@ -305,7 +339,15 @@ export async function loadAndVerify(
     );
   }
 
+  if (blockVerifyStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:wonb-hash-signatures`, {
+      start: blockVerifyStart,
+      end: performance.now(),
+    });
+  }
+
   // ── 5. Cadena de padres ────────────────────────────────────────────
+  const trustStart = perfStart === null ? null : performance.now();
   const chain = verifyChain(blocks);
   if (chain.length > 0) {
     throw new BundleContractError("cadena de bloques incompleta", chain);
@@ -329,6 +371,13 @@ export async function loadAndVerify(
   const asOf = new Date(index.generated_at);
   const expired = blocks.filter(({ block }) => isExpired(block, asOf));
   const ttlOk = expired.length === 0;
+
+  if (trustStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:chain-issuers-ttl`, {
+      start: trustStart,
+      end: performance.now(),
+    });
+  }
 
   const problems: string[] = [];
   if (!ttlOk) {
@@ -359,6 +408,53 @@ export async function loadAndVerify(
     risks.set(p.cell_id, rb.block.payload);
   }
 
+  // ── 8bis. Bloques firmados por celda, con su veredicto real ────────
+  const verdictByPath = new Map(verdicts.checks.map((c) => [c.path, c]));
+  const refOf = ({ path, block }: { path: string; block: WonbBlock }): SignedBlockRef => {
+    const verdict = verdictByPath.get(path);
+    return {
+      type: block.type,
+      id: block.id,
+      path,
+      issuer: block.issuer,
+      issuedAt: block.issued_at,
+      validUntil: block.valid_until,
+      hashOk: verdict?.hashOk ?? false,
+      signatureOk: verdict?.signatureOk ?? false,
+      withinTtl: !isExpired(block, asOf),
+    };
+  };
+  const contextBlock = blocks.find(({ block }) => block.type === "context");
+  const byCell = (list: typeof blocks): Record<string, SignedBlockRef> =>
+    Object.fromEntries(
+      list.map((entry) => [String(entry.block.payload.cell_id), refOf(entry)]),
+    );
+  const signedBlocks: SignedBlocks = {
+    change: refOf(changeBlocks[0]),
+    context: contextBlock ? refOf(contextBlock) : null,
+    risk: byCell(riskBlocks),
+    action: byCell(actionBlocks),
+  };
+
+  // ── 8ter. Umbrales de risk-config.json (bytes ya verificados) ──────
+  let riskConfig: RiskConfig | null = null;
+  if (index.files.some((f) => f.path === "risk-config.json")) {
+    const rc = jsonOf<{
+      delta_db_threshold: number;
+      quality_min_valid_fraction: number;
+      corroboration_overlap_threshold: number;
+      road_buffer_meters: number;
+      opera_max_gap_days: number;
+    }>(await read("risk-config.json", signal));
+    riskConfig = {
+      deltaDbThreshold: rc.delta_db_threshold,
+      minValidPercent: Math.round(rc.quality_min_valid_fraction * 100),
+      corroborationPercent: Math.round(rc.corroboration_overlap_threshold * 100),
+      roadBufferM: rc.road_buffer_meters,
+      operaMaxGapDays: rc.opera_max_gap_days,
+    };
+  }
+
   // ── 9. Integridad: manifest vs change (data_origin) ────────────────
   const manifestDataOrigin = (manifestRaw as { data_origin?: string })
     .data_origin;
@@ -383,6 +479,12 @@ export async function loadAndVerify(
   const overlays = decodeOverlays(boundsRaw, blobUrls);
 
   // ── 11. Ensamblar LoadedBundle ─────────────────────────────────────
+  if (perfStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:total`, {
+      start: perfStart,
+      end: performance.now(),
+    });
+  }
   return {
     aoiId: index.aoi_id,
     bundleVersion: index.bundle_version,
@@ -398,6 +500,8 @@ export async function loadAndVerify(
     actions: decodeActions(
       actionBlocks.map((ab) => ab.block.payload),
     ),
+    signedBlocks,
+    riskConfig,
     verification: {
       filesChecked: files.checks.length,
       filesOk: files.ok,

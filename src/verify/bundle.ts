@@ -55,30 +55,43 @@ export interface BundleFileReport {
 export async function verifyFileHashes(
   index: BundleIndex,
   readBytes: ReadBytes,
+  concurrency = 12,
 ): Promise<BundleFileReport> {
-  const checks: FileCheck[] = [];
+  const checks: FileCheck[] = new Array(index.files.length);
+  const workerCount = Math.max(1, Math.min(index.files.length, Math.floor(concurrency)));
+  let nextIndex = 0;
 
-  for (const entry of index.files) {
-    try {
-      const bytes = await readBytes(entry.path);
-      const actual = sha256Hex(bytes);
-      checks.push({
-        path: entry.path,
-        ok: actual === entry.sha256,
-        expected: entry.sha256,
-        actual,
-        ...(actual === entry.sha256 ? {} : { problem: "sha256 distinto al declarado en index.json" }),
-      });
-    } catch (cause) {
-      checks.push({
-        path: entry.path,
-        ok: false,
-        expected: entry.sha256,
-        actual: null,
-        problem: `no se pudo leer: ${String(cause)}`,
-      });
+  // Pool acotado: evita el waterfall secuencial sin lanzar cientos de
+  // solicitudes simultáneas. Los resultados conservan el orden del índice.
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const current = nextIndex++;
+      if (current >= index.files.length) return;
+      const entry = index.files[current];
+
+      try {
+        const bytes = await readBytes(entry.path);
+        const actual = sha256Hex(bytes);
+        checks[current] = {
+          path: entry.path,
+          ok: actual === entry.sha256,
+          expected: entry.sha256,
+          actual,
+          ...(actual === entry.sha256 ? {} : { problem: "sha256 distinto al declarado en index.json" }),
+        };
+      } catch (cause) {
+        checks[current] = {
+          path: entry.path,
+          ok: false,
+          expected: entry.sha256,
+          actual: null,
+          problem: `no se pudo leer: ${String(cause)}`,
+        };
+      }
     }
-  }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   return {
     ok: checks.every((c) => c.ok),

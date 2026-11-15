@@ -1,0 +1,46 @@
+/*
+ * Respuesta al pulsar, para los dos temas.
+ *
+ * Cada botón se encoge un poco mientras se presiona: confirma al instante que
+ * la interfaz recibió el toque, antes de que llegue el resultado. Se usa la
+ * propiedad `scale` (no `transform`) para no chocar con los transform que ya
+ * usan el diseño y MapLibre (los marcadores del mapa se posicionan así).
+ *
+ * Las transiciones repiten las del diseño (mireya/theme.css y
+ * mireya/navigation.css) y les suman `scale`, con un ease-out fuerte: el
+ * movimiento empieza en cuanto se presiona.
+ */
+button {
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    scale 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.navigation-card,
+.hamburger-trigger {
+  transition:
+    background 150ms,
+    border-color 150ms,
+    transform 150ms,
+    scale 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+button:active:not(:disabled) {
+  scale: 0.97;
+}
+/* Los elementos grandes se encogen menos: 0.97 en una fila ancha se nota
+   demasiado. */
+.priority-row:active:not(:disabled),
+.navigation-card:active {
+  scale: 0.985;
+}
+
+/* Menos movimiento: el diseño ya quita las transiciones; aquí, la escala. */
+@media (prefers-reduced-motion: reduce) {
+  button:active:not(:disabled),
+  .priority-row:active:not(:disabled),
+  .navigation-card:active {
+    scale: none;
+  }
+}

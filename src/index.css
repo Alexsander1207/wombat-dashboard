@@ -1,68 +1,91 @@
+/* Tokens y estilos de prioridad de Ximenacode (PR #6). Se cargan antes del
+   diseño para que sus modificadores is-top-ten / is-first / is-selected /
+   is-insufficient esten disponibles. Ver src/styles/priorities.md. */
+@import './styles/tokens.css';
+@import './styles/priorities.css';
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
+  font-family: Inter, 'Segoe UI', Arial, sans-serif;
+  color: var(--text-primary, #eef5ff);
+  background: var(--app-background, #14213c);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-size: 13px;
+  --panel: rgba(39, 54, 36, 0.94);
+  --border: rgba(213, 219, 169, 0.27);
+  --muted: #b2baa0;
+  --cream: #f2e6ba;
+  --teal: #008b82;
 }
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+* {
+  box-sizing: border-box;
 }
-a:hover {
-  color: #535bf2;
-}
-
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
 }
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+button,
+input,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
-
+button,
+a,
+input {
+  font: inherit;
+}
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border);
   cursor: pointer;
-  transition: border-color 0.25s;
+  border-radius: 5px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 button:hover {
-  border-color: #646cff;
+  background: var(--hover-surface, #263a59);
+  border-color: var(--color-turquoise, #76cfdf);
 }
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--focus-ring, #76cfdf);
+  outline-offset: 4px;
+}
+a {
+  color: inherit;
+}
+button svg {
+  flex-shrink: 0;
+}
+p {
+  line-height: 1.65;
+  margin: 0;
+}
+h1,
+h2,
+h3 {
+  margin: 0;
+}
+h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+input[type='range'] {
+  accent-color: var(--color-turquoise, #76cfdf);
+  cursor: pointer;
+}
+input[type='checkbox'] {
+  accent-color: var(--teal);
+}
+::selection {
+  background: var(--color-navy, #214b7d);
+  color: white;
 }
