@@ -23,6 +23,12 @@ import { MapExplorer } from './components/MapExplorer.tsx'
 import { BrandLogo } from './components/BrandLogo'
 import { FloatingNavigation } from './components/FloatingNavigation'
 import { EvidenceCard, EvidenceDetails } from './components/Evidence'
+import { LiveFeed } from './components/LiveFeed.tsx'
+import {
+  pollSecondsOf,
+  useLiveEvents,
+  type GatewayConfig,
+} from './hooks/useLiveEvents.ts'
 import { Methodology } from './pages/Methodology.tsx'
 import { readableDateTime } from './format.ts'
 import { es } from './copy/es.ts'
@@ -34,6 +40,7 @@ import './styles/mireya/header.css'
 import './styles/integration.css'
 import './styles/mireya-layout-restore.css'
 import './styles/interaction.css'
+import './styles/live.css'
 type View = 'map' | 'evidence' | 'methodology'
 
 // Rutas relativas a la base del despliegue. En GitHub Pages el sitio vive en
@@ -54,6 +61,11 @@ interface BundleEntry {
 
 interface Config {
   bundles: BundleEntry[]
+  /**
+   * Gateway del modo vivo. Opcional: sin él, el dashboard es el de siempre,
+   * solo con bundles estáticos (R17).
+   */
+  gateway?: GatewayConfig
 }
 
 /** Roles que se conceden a una clave pinneada, igual que en sync-data.mjs. */
@@ -90,6 +102,9 @@ export default function App() {
   const [compare, setCompare] = useState(false)
   const [controls, setControls] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  // Modo vivo: aditivo. No toca `bundle` ni la verificación de abajo.
+  const gateway = config?.gateway ?? null
+  const live = useLiveEvents(gateway)
 
   // ── 1. Cargar configuración de bundles ───────────────────────────────
   useEffect(() => {
@@ -387,6 +402,12 @@ export default function App() {
                           ))}
                         </ul>
                       </div>
+                      {gateway && (
+                        <LiveFeed
+                          state={live}
+                          pollSeconds={pollSecondsOf(gateway)}
+                        />
+                      )}
                       <div className="dock-top">
                         {explorer.ranked.slice(0, TOP_COUNT).map((cell) => (
                           <button
