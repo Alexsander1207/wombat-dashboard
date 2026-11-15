@@ -32,6 +32,7 @@ import './styles/mireya/brand.css'
 import './styles/mireya/navigation.css'
 import './styles/mireya/header.css'
 import './styles/integration.css'
+import './styles/mireya-layout-restore.css'
 import './styles/interaction.css'
 type View = 'map' | 'evidence' | 'methodology'
 
