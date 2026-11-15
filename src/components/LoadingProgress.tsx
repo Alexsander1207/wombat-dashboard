@@ -1,5 +1,5 @@
 /**
- * Pantalla de "Cargando…": el wombat, el texto y la barra de avance, sin tarjeta.
+ * Pantalla de "Loading…": el wombat, el texto y la barra de avance, sin tarjeta.
  *
  * Usa el mismo marcado y las mismas clases que la pantalla de carga estática
  * de index.html (allí están los estilos): al montar React nada salta, la barra
@@ -27,7 +27,7 @@ export function LoadingProgress({ progress }: Props) {
     <div className="boot-loader">
       <section
         className={`boot-loader-card ${known ? '' : 'is-indeterminate'}`}
-        aria-label="Carga de los datos verificados"
+        aria-label="Loading the verified data"
       >
         <picture className="boot-loader-mascot" aria-hidden="true">
           <source
@@ -37,12 +37,12 @@ export function LoadingProgress({ progress }: Props) {
           <img src={`${MASCOT}wombat-loading.webp`} width={120} height={80} alt="" />
         </picture>
         <p className="boot-loader-title" role="status">
-          Cargando…
+          Loading…
         </p>
         <div
           className="boot-loader-track"
           role="progressbar"
-          aria-label="Avance de la carga"
+          aria-label="Loading progress"
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={known ? percent : undefined}

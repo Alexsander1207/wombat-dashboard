@@ -58,20 +58,5 @@ export const es = {
     roads: 'Exposición vial', water: 'Contexto de agua', provenance: 'Procedencia',
     score: 'Puntaje publicado', rank: 'Puesto de revisión', noRank: 'Sin puesto',
   },
-  live: {
-    title: 'En vivo',
-    connecting: 'Conectando…', online: 'Conectado', offline: 'Sin conexión',
-    waiting: 'Esperando el primer evento del gateway…',
-    offlineDetail: 'El gateway no responde. El mapa sigue mostrando los datos verificados.',
-    area: 'Área', issued: 'emitido', history: 'Eventos anteriores de esta sesión',
-    lastChecked: 'última consulta',
-    every: (seconds: number) => `Se actualiza cada ${seconds} s`,
-    gatewayVerified: 'Comprobado por el gateway. Este navegador no verificó su firma.',
-    gatewayUnverified: 'El gateway no lo marca como comprobado.',
-    types: {
-      change: 'Cambio observado', context: 'Contexto vial',
-      risk: 'Prioridad de celda', action: 'Revisión sugerida',
-    },
-  },
   limitations: 'WOMBAT ayuda a priorizar revisiones en campo durante la preparación. No predice inundaciones, no emite alertas de emergencia ni confirma daños.',
 } as const;

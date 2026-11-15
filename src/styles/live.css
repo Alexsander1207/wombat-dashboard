@@ -1,90 +1,94 @@
-/* Panel "En vivo" del dock lateral (src/components/LiveFeed.tsx). */
-.live-feed {
-  margin: 0 0 14px;
-  padding: 12px 14px;
-  border: 1px solid var(--ui-border);
-  border-radius: 10px;
-  background: var(--surface-soft, rgba(118, 207, 223, 0.08));
-  font-size: 12.5px;
-  color: var(--text-secondary);
+/*
+ * Tarjeta "Live" (src/components/LiveFeed.tsx).
+ *
+ * El aspecto de tarjeta, los títulos y los textos vienen de Explorer.css
+ * (.explorer-integrity .integrity-panel). Aquí solo va lo propio: la tercera
+ * columna del pie, el indicador de estado y la insignia de procedencia.
+ */
+.explorer-app .explorer-integrity.has-live {
+  width: min(900px, calc(100% - 300px));
+  grid-template-columns: 1.12fr 1fr 1.25fr;
 }
 .live-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: var(--text-primary);
+  gap: 6px;
+  margin: 0 0 4px;
+  color: var(--ocean-text, #eef5ff);
 }
-.live-head strong {
-  font-size: 13px;
+.explorer-integrity .live-head h2 {
+  margin: 0;
 }
 .live-status {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: var(--text-secondary);
+  gap: 5px;
+  font-size: 10px;
+  color: #b6c7d8;
 }
 .live-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--text-muted);
+  background: #8a9bb0;
 }
 .live-online .live-dot {
-  background: var(--color-success, #2b958a);
+  background: #4fd1a5;
 }
 .live-offline .live-dot {
-  background: var(--color-coral, #e97873);
+  background: #e97873;
 }
-.live-latest {
-  margin-top: 10px;
-}
-.live-line {
+.explorer-integrity .live-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
-.live-line strong {
-  font-size: 14px;
-  color: var(--text-primary);
-}
 .live-origin {
-  padding: 2px 8px;
-  border: 1px solid var(--ui-border);
+  padding: 1px 7px;
+  border: 1px solid var(--ocean-border, rgba(213, 229, 232, 0.24));
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 600;
   white-space: nowrap;
 }
 .live-origin.is-simulated {
-  background: var(--warning-surface, #fff0d0);
-  color: var(--warning-text, #54391c);
+  color: #f4d58a;
   border: 1px dashed currentColor;
-}
-.live-meta,
-.live-trust,
-.live-empty,
-.live-foot {
-  margin: 6px 0 0;
-  line-height: 1.45;
-}
-.live-trust,
-.live-foot {
-  font-size: 11.5px;
-  color: var(--text-muted);
 }
 .live-history {
   list-style: none;
-  margin: 10px 0 0;
-  padding: 8px 0 0;
-  border-top: 1px solid var(--ui-border);
+  margin: 5px 0 0;
+  padding: 4px 0 0;
+  border-top: 1px solid var(--ocean-border, rgba(213, 229, 232, 0.24));
   display: grid;
-  gap: 4px;
-  font-size: 11.5px;
+  gap: 2px;
+  font-size: 10px;
+  color: #b6c7d8;
+  max-height: 44px;
+  overflow: auto;
 }
 .live-history li {
   display: flex;
   justify-content: space-between;
   gap: 8px;
+}
+.explorer-integrity .live-foot {
+  margin-top: 4px;
+}
+@media (max-width: 1150px) {
+  .explorer-app .explorer-integrity.has-live {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .explorer-app .explorer-integrity.has-live {
+    width: auto;
+  }
+}
+@media (max-width: 380px) {
+  .explorer-app .explorer-integrity.has-live {
+    grid-template-columns: 1fr;
+  }
 }

@@ -150,6 +150,29 @@ describe('useLiveEvents', () => {
     expect(result.current.events).toHaveLength(1)
   })
 
+  it('en segundo plano no consulta, y al volver a la pestaña consulta enseguida', async () => {
+    vi.useFakeTimers()
+    const fetchMock = okFetch(gatewayResponse())
+    vi.stubGlobal('fetch', fetchMock)
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+
+    const { result } = renderHook(() =>
+      useLiveEvents({ url: 'https://gw.example', pollSeconds: 60 }),
+    )
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(result.current.status).toBe('connecting')
+
+    visibility.mockReturnValue('visible')
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(result.current.status).toBe('online')
+    visibility.mockRestore()
+  })
+
   it('si el gateway cae, queda sin conexión y conserva lo ya visto', async () => {
     vi.useFakeTimers()
     const fetchMock = vi
@@ -192,14 +215,14 @@ describe('LiveFeed', () => {
 
   it('muestra el evento, que es simulado y que la firma no se verificó aquí', () => {
     render(<LiveFeed state={online} pollSeconds={60} />)
-    expect(screen.getByText('Cambio observado')).toBeInTheDocument()
-    expect(screen.getByText('Simulado')).toBeInTheDocument()
+    expect(screen.getByText('Change observed')).toBeInTheDocument()
+    expect(screen.getByText('Simulated')).toBeInTheDocument()
     // El aviso largo del productor no se muestra: basta la insignia.
     expect(screen.queryByText(/DEMO SIMULADA/)).not.toBeInTheDocument()
-    expect(screen.getByText(/Este navegador no verificó su firma/)).toBeInTheDocument()
-    expect(screen.getByText(/Se actualiza cada 60 s/)).toBeInTheDocument()
+    expect(screen.getByText(/not by this browser/)).toBeInTheDocument()
+    expect(screen.getByText(/Updates every 60 s/)).toBeInTheDocument()
     // Los nanosegundos de issued_at no rompen la fecha.
-    expect(screen.getByText(/piura-demo · emitido .*2026.*UTC/)).toBeInTheDocument()
+    expect(screen.getByText(/piura-demo · issued .*2026.*UTC/)).toBeInTheDocument()
   })
 
   it('sin conexión lo dice y aclara que el mapa sigue funcionando', () => {
@@ -209,8 +232,8 @@ describe('LiveFeed', () => {
         pollSeconds={60}
       />,
     )
-    expect(screen.getByRole('status')).toHaveTextContent('Sin conexión')
-    expect(screen.getByText(/El mapa sigue mostrando los datos verificados/)).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Offline')
+    expect(screen.getByText(/The map still shows the verified data/)).toBeInTheDocument()
   })
 })
 

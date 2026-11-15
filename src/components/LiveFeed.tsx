@@ -1,15 +1,33 @@
 /**
- * Panel "En vivo": el último evento que publica el gateway.
+ * Tarjeta "Live": el último evento que publica el gateway.
  *
- * Va aparte del mapa y de la insignia de verificación a propósito. Lo que se
- * muestra aquí no pasó por la verificación del navegador (ver
- * src/live/gateway.ts), y si el evento es simulado se dice en el mismo panel.
+ * Va aparte del mapa y de "Verified data" a propósito. Lo que se muestra aquí
+ * no pasó por la verificación del navegador (ver src/live/gateway.ts), y si el
+ * evento es simulado se dice en la misma tarjeta.
+ *
+ * Usa la clase `integrity-panel` para verse igual que las otras tarjetas del
+ * pie del Explorer (Explorer.css); lo propio está en src/styles/live.css.
  */
 import { Radio } from 'lucide-react'
 import type { LiveEvent } from '../live/gateway.ts'
 import type { LiveState } from '../hooks/useLiveEvents.ts'
-import { readableDateTime } from '../format.ts'
-import { es } from '../copy/es.ts'
+import { englishDateTime } from './explorerCopy.ts'
+
+const EVENT_TYPES: Record<string, string> = {
+  change: 'Change observed',
+  context: 'Road context',
+  risk: 'Cell priority',
+  action: 'Suggested check',
+}
+
+const STATUS_TEXT: Record<LiveState['status'], string> = {
+  connecting: 'Connecting…',
+  online: 'Connected',
+  offline: 'Offline',
+}
+
+const OFFLINE_DETAIL =
+  'The gateway is not responding. The map still shows the verified data.'
 
 /**
  * `issued_at` puede traer nanosegundos (…49.245961871Z). Se recorta a
@@ -20,19 +38,19 @@ function toMillis(iso: string): string {
 }
 
 function eventTypeLabel(type: string): string {
-  return (es.live.types as Record<string, string>)[type] ?? type
+  return EVENT_TYPES[type] ?? type
 }
 
 function originLabel(event: LiveEvent): string {
-  if (event.simulated) return es.origin.simulatedBadge
-  return event.dataOrigin === 'nisar_real' ? es.origin.real : es.origin.unknown
+  if (event.simulated) return 'Simulated'
+  return event.dataOrigin === 'nisar_real' ? 'Real NISAR data' : 'Unclassified source'
 }
 
 function clockTime(iso: string | null): string {
   if (!iso) return '—'
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleTimeString('es-PE', { hour12: false })
+  return date.toLocaleTimeString('en-GB', { hour12: false })
 }
 
 export function LiveFeed({
@@ -43,65 +61,61 @@ export function LiveFeed({
   pollSeconds: number
 }) {
   const [latest, ...earlier] = state.events
-  const statusText =
-    state.status === 'online'
-      ? es.live.online
-      : state.status === 'offline'
-        ? es.live.offline
-        : es.live.connecting
 
   return (
-    <section className={`live-feed live-${state.status}`} aria-label={es.live.title}>
+    <section className={`integrity-panel live-feed live-${state.status}`} aria-label="Live feed">
       <header className="live-head">
-        <Radio size={15} aria-hidden="true" />
-        <strong>{es.live.title}</strong>
+        <Radio size={13} aria-hidden="true" />
+        <h2>Live</h2>
         <span className="live-status" role="status">
           <i className="live-dot" aria-hidden="true" />
-          {statusText}
+          {STATUS_TEXT[state.status]}
         </span>
       </header>
 
       {latest ? (
-        <div className="live-latest">
-          <div className="live-line">
-            <strong>{eventTypeLabel(latest.type)}</strong>
+        <>
+          <p className="integrity-line live-line">
+            {eventTypeLabel(latest.type)}
             <span className={`live-origin ${latest.simulated ? 'is-simulated' : ''}`}>
               {originLabel(latest)}
             </span>
-          </div>
-          <p className="live-meta">
-            {es.live.area} {latest.aoiId} · {es.live.issued}{' '}
-            {readableDateTime(toMillis(latest.issuedAt))}
           </p>
-          <p className="live-trust">
-            {latest.gatewayVerified ? es.live.gatewayVerified : es.live.gatewayUnverified}
+          <p className="explorer-summary-meta">
+            Area: {latest.aoiId} · issued {englishDateTime(toMillis(latest.issuedAt))}
           </p>
-        </div>
+          <p className="explorer-summary-meta">
+            {latest.gatewayVerified
+              ? 'Checked by the gateway, not by this browser.'
+              : 'The gateway does not mark it as checked.'}
+          </p>
+          {state.status === 'offline' && (
+            <p className="explorer-summary-meta">{OFFLINE_DETAIL}</p>
+          )}
+        </>
       ) : (
-        <p className="live-empty">
-          {state.status === 'offline' ? es.live.offlineDetail : es.live.waiting}
+        <p className="explorer-summary-meta">
+          {state.status === 'offline'
+            ? OFFLINE_DETAIL
+            : 'Waiting for the first event from the gateway…'}
         </p>
       )}
 
-      {latest && state.status === 'offline' && (
-        <p className="live-empty">{es.live.offlineDetail}</p>
-      )}
-
       {earlier.length > 0 && (
-        <ol className="live-history" aria-label={es.live.history}>
+        <ol className="live-history" aria-label="Earlier events in this session">
           {earlier.map((event) => (
             <li key={event.wonbId}>
               <span>{eventTypeLabel(event.type)}</span>
               <time dateTime={toMillis(event.issuedAt)}>
-                {readableDateTime(toMillis(event.issuedAt))}
+                {englishDateTime(toMillis(event.issuedAt))}
               </time>
             </li>
           ))}
         </ol>
       )}
 
-      <p className="live-foot">
-        {es.live.every(pollSeconds)} · {es.live.lastChecked} {clockTime(state.lastChecked)}
+      <p className="explorer-summary-meta live-foot">
+        Updates every {pollSeconds} s · last check {clockTime(state.lastChecked)}
       </p>
     </section>
   )

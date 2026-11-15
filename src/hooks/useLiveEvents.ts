@@ -106,10 +106,17 @@ export function useLiveEvents(gateway: GatewayConfig | null | undefined): LiveSt
 
     void poll()
     const interval = setInterval(() => void poll(), seconds * 1000)
+    // Al volver a la pestaña se consulta enseguida: si no, quien abrió el
+    // enlace en segundo plano vería "Connecting…" hasta el siguiente intervalo.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void poll()
+    }
+    document.addEventListener('visibilitychange', onVisible)
 
     return () => {
       cancelled = true
       clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
       inFlight?.abort()
     }
   }, [url, seconds])
