@@ -31,10 +31,32 @@ import { DataStatus } from './DataStatus'
 import { MapLayerControls, type VisibleLayers } from './MapLayerControls'
 import { getMapDisplay } from '../frontend/mapDisplay'
 import { STATUS_FILL, STATUS_LEGEND } from '../frontend/statusColors.ts'
+import { useColorScheme } from '../hooks/useColorScheme.ts'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 // MapLibre v6 requires Vite to bundle its worker before any map is created.
 maplibregl.setWorkerUrl(workerUrl)
+
+/**
+ * Colores de las capas vectoriales y del fondo, leídos del CSS para que sigan
+ * el tema del sistema (src/styles/theme-light.css). Cada valor por defecto es
+ * el color original del diseño oscuro. Los rásteres y STATUS_FILL no cambian:
+ * son datos, no tema.
+ */
+function mapPalette() {
+  const ui = getComputedStyle(document.documentElement)
+  const read = (name: string, fallback: string) =>
+    ui.getPropertyValue(name).trim() || fallback
+  return {
+    background: read('--map-background', '#14213c'),
+    roads: read('--map-roads', '#9fd8e0'),
+    gridLine: read('--map-grid-line', '#c8dfbd'),
+    boundary: read('--map-boundary', '#e4cf60'),
+    priority: read('--map-priority-line', '#fff0c2'),
+    selectionHalo: read('--selected-halo', '#FFF8EA'),
+    selection: read('--selected-outline', '#E97873'),
+  }
+}
 
 /** Margen del encuadre: los paneles ya no flotan sobre el mapa. */
 const MAP_PADDING = 36
@@ -88,6 +110,7 @@ export function MapExplorer({
   })
   const [split, setSplit] = useState(50),
     [opacity, setOpacity] = useState(60)
+  const scheme = useColorScheme()
   const popover = useRef<HTMLDivElement>(null)
   const top = bundle.ranked.slice(0, TOP_COUNT)
   const [west, south, east, north] = bundle.bounds
@@ -122,13 +145,7 @@ export function MapExplorer({
       syncing = false
     const markers: maplibregl.Marker[] = []
     try {
-      const ui = getComputedStyle(document.documentElement)
-      const selectionCoral =
-        ui.getPropertyValue('--selected-outline').trim() || '#E97873'
-      const selectionCream =
-        ui.getPropertyValue('--selected-halo').trim() || '#FFF8EA'
-      const mapBackground =
-        ui.getPropertyValue('--map-background').trim() || '#14213c'
+      const palette = mapPalette()
       const [w, s, e, n] = bundle.bounds
       const topCells = bundle.ranked.slice(0, TOP_COUNT)
       const makeMap = (container: HTMLDivElement, before: boolean) => {
@@ -149,7 +166,7 @@ export function MapExplorer({
               {
                 id: 'background',
                 type: 'background',
-                paint: { 'background-color': mapBackground },
+                paint: { 'background-color': palette.background },
               },
             ],
           },
@@ -238,7 +255,7 @@ export function MapExplorer({
             type: 'line',
             source: 'roads',
             paint: {
-              'line-color': '#9fd8e0',
+              'line-color': palette.roads,
               'line-width': 0.7,
               'line-opacity': 0.45,
             },
@@ -248,7 +265,7 @@ export function MapExplorer({
             type: 'line',
             source: 'grid',
             paint: {
-              'line-color': '#c8dfbd',
+              'line-color': palette.gridLine,
               'line-width': 0.5,
               'line-opacity': 0.22,
             },
@@ -258,7 +275,7 @@ export function MapExplorer({
             type: 'line',
             source: 'boundary',
             paint: {
-              'line-color': '#e4cf60',
+              'line-color': palette.boundary,
               'line-width': 2,
               'line-opacity': 0.9,
             },
@@ -272,7 +289,7 @@ export function MapExplorer({
               ['get', 'id'],
               ['literal', topCells.map((cell) => cell.id)],
             ],
-            paint: { 'line-color': '#fff0c2', 'line-width': 2.5 },
+            paint: { 'line-color': palette.priority, 'line-width': 2.5 },
           })
           map.addLayer({
             id: 'selected-halo',
@@ -280,7 +297,7 @@ export function MapExplorer({
             source: 'grid',
             filter: ['==', ['get', 'id'], ''],
             paint: {
-              'line-color': selectionCream,
+              'line-color': palette.selectionHalo,
               'line-width': 6,
               'line-opacity': 0.95,
             },
@@ -290,7 +307,7 @@ export function MapExplorer({
             type: 'line',
             source: 'grid',
             filter: ['==', ['get', 'id'], ''],
-            paint: { 'line-color': selectionCoral, 'line-width': 2.5 },
+            paint: { 'line-color': palette.selection, 'line-width': 2.5 },
           })
           map.addLayer({
             id: 'hit-area',
@@ -415,6 +432,21 @@ export function MapExplorer({
       map.setPaintProperty('change', 'raster-opacity', display.changeOpacity)
     }
   }, [ready, layers, selected, opacity, compare])
+  // El tema del sistema cambió: los lienzos no leen CSS, se les repinta.
+  useEffect(() => {
+    if (!ready) return
+    const palette = mapPalette()
+    for (const map of maps.current) {
+      if (!map.getLayer('selected')) continue
+      map.setPaintProperty('background', 'background-color', palette.background)
+      map.setPaintProperty('water', 'line-color', palette.roads)
+      map.setPaintProperty('grid', 'line-color', palette.gridLine)
+      map.setPaintProperty('boundary', 'line-color', palette.boundary)
+      map.setPaintProperty('priority', 'line-color', palette.priority)
+      map.setPaintProperty('selected-halo', 'line-color', palette.selectionHalo)
+      map.setPaintProperty('selected', 'line-color', palette.selection)
+    }
+  }, [ready, scheme])
   const pairNote =
     bundle.mode === 'simulated'
       ? 'Imágenes simuladas de prueba'
