@@ -110,6 +110,7 @@ export function MapExplorer({
   const baseContainer = useRef<HTMLDivElement>(null),
     beforeContainer = useRef<HTMLDivElement>(null)
   const maps = useRef<maplibregl.Map[]>([])
+  const evidencePanel = useRef<HTMLElement>(null)
   const [panel, setPanel] = useState<'explore' | 'evidence' | null>('explore')
   const [evidenceOpen, setEvidenceOpen] = useState(true)
   const [overlay, setOverlay] = useState<'delta' | 't1' | 't2'>('delta')
@@ -545,7 +546,16 @@ export function MapExplorer({
     setPanel(current => window.innerWidth <= 760 || current === 'evidence' ? null : current)
     if (controls) onControls()
   }
+  // `panel === 'evidence'` is the empty chooser; detailed Evidence uses the
+  // existing right panel. Opening Evidence routes to exactly one of these.
   const showingEvidence = selected !== null && evidenceOpen && !controls && panel !== 'evidence'
+  const openEvidence = () => {
+    if (controls) onControls()
+    setPanel(selected ? null : 'evidence')
+    setEvidenceOpen(true)
+    const fold = evidencePanel.current?.querySelector<HTMLDetailsElement>('.explorer-evidence-fold')
+    if (fold) fold.open = true
+  }
   const togglePanel = (next: 'explore' | 'evidence') => {
     if (controls) onControls()
     setPanel(current => current === next ? null : next)
@@ -564,15 +574,12 @@ export function MapExplorer({
       </div>}
       {!ready && !mapError && <div className="explorer-map-message" role="status">Loading map…</div>}
       <div className="explorer-action-bar">
-        <FloatingNavigation active={controls ? 'layers' : panel === 'evidence' ? 'evidence' : 'explore'}
+        <FloatingNavigation active={controls ? 'layers' : panel === 'evidence' || (showingEvidence && panel === null) ? 'evidence' : 'explore'}
           onNavigate={destination => {
             if (destination === 'guide') onGuide?.()
             else if (destination === 'layers') { setPanel(null); onControls() }
-            else if (destination === 'evidence' && selected) {
-              if (controls) onControls()
-              setPanel(null)
-              setEvidenceOpen(true)
-            } else togglePanel(destination)
+            else if (destination === 'evidence') openEvidence()
+            else togglePanel(destination)
           }} />
         <button className="explorer-priority-trigger" aria-expanded={panel === 'explore' && !controls}
           aria-controls="explorer-left-panel" onClick={() => togglePanel('explore')}>
@@ -643,7 +650,7 @@ export function MapExplorer({
         {!canCompare && <small>Comparison unavailable: matching images and valid dates are needed.</small>}
       </section>
       <div className={`explorer-right-dock ${showingEvidence ? 'with-evidence' : ''}`}>
-        {showingEvidence && <aside className="explorer-evidence-panel explorer-glass">
+        {showingEvidence && <aside className="explorer-evidence-panel explorer-glass" ref={evidencePanel}>
           <OceanEvidence cell={selected} bundle={bundle} onSelect={choose}
             onClose={() => { setEvidenceOpen(false); onClearSelection?.() }} />
         </aside>}
