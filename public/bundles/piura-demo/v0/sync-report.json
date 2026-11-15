@@ -1,0 +1,15 @@
+{
+  "synced_at": "2026-11-15T04:35:52.178Z",
+  "aoi_id": "piura-demo",
+  "bundle_version": "v0",
+  "contract_version": "1.0.0",
+  "generated_at": "2026-11-14T17:00:00Z",
+  "data_origin": "simulated",
+  "source": "../Wombat-core/contracts/v1/fixtures/bundle/piura-demo/v0",
+  "issuers": [
+    "ed25519:92b8169774b5f100de3f37b5ec63b9a10100ae6d1983c4bbdc9b9e7ca6f014be"
+  ],
+  "files_checked": 30,
+  "blocks_verified": 21,
+  "verdict": "ok"
+}

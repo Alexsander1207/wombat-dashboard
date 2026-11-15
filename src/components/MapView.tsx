@@ -9,9 +9,9 @@
  *    exactamente lo que el producto puede acreditar.
  *
  * 2. La rampa de color es secuencial de un solo tono (violeta), no un semáforo.
- *    Rojo-amarillo-verde es lenguaje de alerta, y lo que publica el contrato es
- *    un ORDEN DE REVISIÓN (regla 5). El color indica "primero / después / sin
- *    prioridad", no "peligro / precaución / seguro". `insufficient_quality`
+ *    Rojo-amarillo-verde es lenguaje de alerta, y lo que publica el contrato
+ *    es un ORDEN DE REVISIÓN (regla 5). El color indica "primero / después /
+ *    sin prioridad", no "peligro / precaución / seguro". `insufficient_quality`
  *    sale en gris neutro, fuera de la rampa: no es un extremo bajo, es la
  *    ausencia de dato.
  */
@@ -19,43 +19,15 @@ import { useEffect, useRef } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import type { VerifiedBundle } from "../data/loadBundle.ts";
-
+import type { LoadedBundle } from "../bundle/types.ts";
 import type { OverlayKey } from "./statusColors.ts";
 import { STATUS_COLORS } from "./statusColors.ts";
 
 interface MapViewProps {
-  bundle: VerifiedBundle;
+  bundle: LoadedBundle;
   overlay: OverlayKey;
   selectedCellId: string | null;
   onSelectCell: (cellId: string | null) => void;
-}
-
-/**
- * Une la geometría de cells.geojson con el estado firmado de los bloques risk.
- *
- * El GeoJSON aporta polígonos y nada más. `status`, `rank` y `score_bp` salen
- * del bloque `risk` de cada celda (regla 1): el GeoJSON trae además unas
- * fracciones en float que NO se usan para nada, porque la versión firmada de
- * esos mismos números son los enteros del bloque.
- */
-function cellsWithStatus(bundle: VerifiedBundle): GeoJSON.FeatureCollection {
-  return {
-    type: "FeatureCollection",
-    features: bundle.cells.features.map((feature) => {
-      const risk = bundle.risks.get(feature.properties.cell_id);
-      return {
-        type: "Feature" as const,
-        geometry: feature.geometry as GeoJSON.Polygon,
-        properties: {
-          cell_id: feature.properties.cell_id,
-          status: risk?.status ?? "insufficient_quality",
-          rank: risk?.rank ?? null,
-          score_bp: risk?.score_bp ?? null,
-        },
-      };
-    }),
-  };
 }
 
 export function MapView({ bundle, overlay, selectedCellId, onSelectCell }: MapViewProps) {
@@ -68,7 +40,7 @@ export function MapView({ bundle, overlay, selectedCellId, onSelectCell }: MapVi
   useEffect(() => {
     if (!container.current) return;
 
-    const [west, south, east, north] = bundle.manifest.bbox_wgs84;
+    const [west, south, east, north] = bundle.manifest.bboxWgs84;
     const instance = new maplibregl.Map({
       container: container.current,
       style: {
@@ -92,14 +64,15 @@ export function MapView({ bundle, overlay, selectedCellId, onSelectCell }: MapVi
       // bytes ya están verificados y en memoria; volver a crear la fuente en
       // cada cambio obligaría a reconstruir el blob sin ninguna ganancia.
       for (const key of ["t1", "t2", "delta"] as OverlayKey[]) {
+        const [w, s, e, n] = bundle.overlays.bounds;
         instance.addSource(`overlay-${key}`, {
           type: "image",
           url: bundle.overlays[key],
-          coordinates: bundle.bounds.coordinates as [
-            [number, number],
-            [number, number],
-            [number, number],
-            [number, number],
+          coordinates: [
+            [w, s],
+            [e, s],
+            [e, n],
+            [w, n],
           ],
         });
         instance.addLayer({
@@ -114,7 +87,18 @@ export function MapView({ bundle, overlay, selectedCellId, onSelectCell }: MapVi
         });
       }
 
-      instance.addSource("celdas", { type: "geojson", data: cellsWithStatus(bundle) });
+      const features = bundle.cells.map((cell) => ({
+        type: "Feature" as const,
+        geometry: cell.geometry ?? { type: "Polygon", coordinates: [] },
+        properties: {
+          cell_id: cell.cellId,
+          status: cell.status,
+          rank: cell.rank,
+          score_bp: cell.scoreBp,
+        },
+      }));
+
+      instance.addSource("celdas", { type: "geojson", data: { type: "FeatureCollection", features } });
 
       instance.addLayer({
         id: "celdas-relleno",
@@ -134,8 +118,6 @@ export function MapView({ bundle, overlay, selectedCellId, onSelectCell }: MapVi
             STATUS_COLORS.insufficient_quality,
             "#64748b",
           ],
-          // Translúcido para que el overlay siga leyéndose debajo: la celda
-          // clasifica, la imagen es la evidencia.
           "fill-opacity": [
             "case",
             ["==", ["get", "status"], "insufficient_quality"],
@@ -156,8 +138,6 @@ export function MapView({ bundle, overlay, selectedCellId, onSelectCell }: MapVi
         },
       });
 
-      // La celda elegida: un borde grueso, no un color distinto. Cambiarle el
-      // color destruiría la información que el color transporta.
       instance.addLayer({
         id: "celdas-seleccion",
         type: "line",
@@ -166,16 +146,10 @@ export function MapView({ bundle, overlay, selectedCellId, onSelectCell }: MapVi
         paint: { "line-color": "#fbbf24", "line-width": 3 },
       });
 
-      instance.on(
-        "click",
-        "celdas-relleno",
-        (event: maplibregl.MapMouseEvent & { features?: unknown[] }) => {
-          const feature = event.features?.[0] as
-            | { properties?: { cell_id?: string } }
-            | undefined;
+      instance.on("click", "celdas-relleno", (event: maplibregl.MapMouseEvent & { features?: unknown[] }) => {
+        const feature = event.features?.[0] as { properties?: { cell_id?: string } } | undefined;
         if (feature) onSelectCell(String(feature.properties?.cell_id ?? ""));
       });
-      // Un clic fuera de cualquier celda deselecciona.
       instance.on("click", (event: maplibregl.MapMouseEvent) => {
         const hits = instance.queryRenderedFeatures(event.point, { layers: ["celdas-relleno"] });
         if (hits.length === 0) onSelectCell(null);
@@ -195,8 +169,6 @@ export function MapView({ bundle, overlay, selectedCellId, onSelectCell }: MapVi
       instance.remove();
       map.current = null;
     };
-    // `overlay` y `selectedCellId` se aplican en los efectos de abajo; incluirlos
-    // acá remontaría el mapa entero en cada clic.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bundle, onSelectCell]);
 
