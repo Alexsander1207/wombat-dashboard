@@ -1,0 +1,7 @@
+﻿@import './mireya/navigation.css';
+/* Keep MapLibre controls separate from the adjacent integrity panel. */
+.app .maplibregl-ctrl-group button { width: 44px; height: 44px; min-height: 44px; }
+.app .maplibregl-ctrl button:hover { background-color: #dce8f1; }
+.app .maplibregl-ctrl button:focus-visible { outline-color: #10233f; outline-offset: -4px; }
+.app .maplibregl-ctrl-scale { color: #10233f; background: #eef5ff; font-size: var(--text-12); }
+.text-button { display: inline-flex; align-items: center; gap: var(--space-8); }
