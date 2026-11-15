@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { loadAndVerify, releaseBundle, type LoadedBundle } from "./bundle/contract.ts";
 import { MapView } from "./components/MapView.tsx";
+import { Methodology } from "./pages/Methodology.tsx";
 import type { OverlayKey } from "./components/statusColors.ts";
 import { readableDateTime, percentFromBp, statusLabel } from "./format.ts";
 import "./App.css";
+
+/** Vista activa. Sin react-router: una sola pantalla con dos modos. */
+type View = "mapa" | "metodologia";
 
 const CONFIG_URL = "/dashboard.config.json";
 
@@ -37,6 +41,7 @@ export default function App() {
   const [overlay, setOverlay] = useState<OverlayKey>("delta");
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<BundleEntry | null>(null);
+  const [view, setView] = useState<View>("mapa");
   const abortRef = useRef<AbortController | null>(null);
 
   // ── 1. Cargar configuración de bundles ───────────────────────────────
@@ -107,7 +112,12 @@ export default function App() {
     };
   }, [bundle]);
 
-  // ── 4. Estados de error y carga ──────────────────────────────────────
+  // ── 4. Metodología: no depende del bundle, se lee siempre ────────────
+  if (view === "metodologia") {
+    return <Methodology onBack={() => setView("mapa")} />;
+  }
+
+  // ── 5. Estados de error y carga ──────────────────────────────────────
   if (!config) {
     return (
       <div className="loading">
@@ -121,6 +131,9 @@ export default function App() {
         <h2>No se pudo cargar el bundle</h2>
         <p>{error}</p>
         <button onClick={() => window.location.reload()}>Reintentar</button>
+        <button type="button" onClick={() => setView("metodologia")}>
+          Ver metodología
+        </button>
       </div>
     );
   }
@@ -139,7 +152,7 @@ export default function App() {
     );
   }
 
-  // ── 5. Render principal ──────────────────────────────────────────────
+  // ── 6. Render principal ──────────────────────────────────────────────
   const top3 = bundle.actions.slice(0, 3);
   const simulated = bundle.dataOrigin === "simulated";
   const highCount = bundle.cells.filter((c) => c.status === "review_high").length;
@@ -196,6 +209,13 @@ export default function App() {
           {bundle.manifest.aoiName} · {bundle.bundleVersion} ·
           {readableDateTime(bundle.verification.asOf)} · instantánea
         </span>
+        <button
+          className="view-toggle"
+          type="button"
+          onClick={() => setView("metodologia")}
+        >
+          Metodología
+        </button>
       </header>
       <div className="mapa">
         <MapView
