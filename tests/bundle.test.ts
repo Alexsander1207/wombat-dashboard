@@ -50,7 +50,7 @@ function makeReadBytes(dir: string) {
 
 async function updateIndexHash(dir: string, filePath: string): Promise<void> {
   const index = JSON.parse(await readFile(join(dir, "index.json"), "utf8"));
-  const bytes = await readFile(join(dir, filePath));
+  const bytes = new Uint8Array(await readFile(join(dir, filePath)));
   const hex = bytesToHex(sha256(bytes));
   for (const entry of index.files) {
     if (entry.path === filePath) {
