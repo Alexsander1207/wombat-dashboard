@@ -26,6 +26,9 @@ import type { EvidenceLink, ExplorerCell } from '../adapters/toExplorer.ts'
 import { readableDate } from '../format.ts'
 import { DataStatus } from './DataStatus'
 
+const fmt = (n: number | null | undefined): string =>
+  n === null || n === undefined ? '' : String(n).replace('.', ',')
+
 function Metrics({
   cell,
   expanded = false,
@@ -37,7 +40,7 @@ function Metrics({
     <dl className={expanded ? 'metrics expanded-metrics' : 'metrics'}>
       <div>
         <dt>Imagen utilizable</dt>
-        <dd>{cell.valid} %</dd>
+        <dd>{fmt(cell.valid)} %</dd>
       </div>
       <div>
         <dt>Prioridad (0 a 100)</dt>
@@ -47,21 +50,21 @@ function Metrics({
       </div>
       <div>
         <dt>Superficie que cambió</dt>
-        <dd>{cell.changed} %</dd>
+        <dd>{fmt(cell.changed)} %</dd>
       </div>
       <div>
         <dt>Intensidad del cambio</dt>
         <dd>
-          {cell.magnitude} <small>dB</small>
+          {fmt(cell.magnitude)} <small>dB</small>
         </dd>
       </div>
       <div>
         <dt>Señal de radar más fuerte</dt>
-        <dd>{cell.increased} %</dd>
+        <dd>{fmt(cell.increased)} %</dd>
       </div>
       <div>
         <dt>Señal de radar más débil</dt>
-        <dd>{cell.decreased} %</dd>
+        <dd>{fmt(cell.decreased)} %</dd>
       </div>
       <div>
         <dt>¿Lo confirma otro satélite?</dt>
@@ -70,7 +73,7 @@ function Metrics({
       <div>
         <dt>Caminos cerca del cambio</dt>
         <dd>
-          {cell.roads} <small>km</small>
+          {fmt(cell.roads)} <small>km</small>
         </dd>
       </div>
     </dl>

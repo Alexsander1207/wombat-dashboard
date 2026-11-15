@@ -100,11 +100,18 @@ const roundPct = (bp: number): number => Math.trunc((bp + 50) / 100);
  * redondea el pipeline al escribir el texto firmado (2150 m → "2.2", 50 m → "0.0").
  * Se hace con enteros para no depender del redondeo de coma flotante.
  */
+const kmNum = (metres: number): number => {
+  let tenths = Math.floor(metres / 100);
+  const rest = metres % 100;
+  if (rest > 50 || (rest === 50 && tenths % 2 === 1)) tenths += 1;
+  return tenths / 10;
+};
+
 const km = (metres: number): string => {
   let tenths = Math.floor(metres / 100);
   const rest = metres % 100;
   if (rest > 50 || (rest === 50 && tenths % 2 === 1)) tenths += 1;
-  return `${Math.floor(tenths / 10)}.${tenths % 10}`;
+  return `${Math.floor(tenths / 10)},${tenths % 10}`;
 };
 
 function operaLabel(cell: BundleCell): string {
@@ -188,7 +195,7 @@ export function toExplorer(c: LoadedBundle): ExplorerData {
       increased: pct(m.increaseBp),
       decreased: pct(m.decreaseBp),
       water,
-      roads: Number(km(m.roadMNearChange)),
+      roads: kmNum(m.roadMNearChange),
       explanation: explainInSpanish(cell, c.riskConfig),
       action: action ? actionLabel(action.action) : null,
       center: centreOf(cell, centre),

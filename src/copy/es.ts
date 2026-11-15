@@ -8,10 +8,14 @@ export const es = {
     priorities: 'Orden de revisión sugerido', close: 'Cerrar', retry: 'Reintentar',
   },
   origin: {
-    simulatedBadge: 'SIMULATED', simulated: 'Datos simulados de desarrollo; no usar para decisiones operativas.',
-    provisionalBadge: 'PROVISIONAL',
+    simulatedBadge: 'Simulado', simulated: 'Datos simulados de desarrollo; no usar para decisiones operativas.',
+    provisionalBadge: 'Provisional',
     provisional: 'Datos NISAR en etapa provisional: útiles para priorizar, no para medir daños.',
     real: 'NISAR real', unknown: 'Procedencia sin clasificar', snapshot: 'Instantánea',
+  },
+  attribution: {
+    osm: '© Colaboradores de OpenStreetMap',
+    note: 'Orden de revisión sugerido para preparación · No es un pronóstico',
   },
   integrity: {
     title: 'Integridad del bundle', verified: 'Verificado', notChecked: 'Sin verificar', how: '¿Cómo se verificó?',

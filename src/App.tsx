@@ -25,6 +25,7 @@ import { FloatingNavigation } from './components/FloatingNavigation'
 import { EvidenceCard, EvidenceDetails } from './components/Evidence'
 import { Methodology } from './pages/Methodology.tsx'
 import { readableDateTime } from './format.ts'
+import { es } from './copy/es.ts'
 import './App.css'
 import './styles/mireya/theme.css'
 import './styles/mireya/brand.css'
@@ -66,10 +67,12 @@ const PINNED_ROLES = ['change', 'context', 'risk', 'action']
  * integrityWarning y la insignia sigue al dato firmado.
  */
 function originBadge(dataOrigin: string, maturity: string): string {
-  if (dataOrigin === 'nisar_real')
-    return `Datos reales del satélite NISAR · ${maturity}`
+  if (dataOrigin === 'nisar_real') {
+    const mat = maturity === 'PROVISIONAL' ? 'etapa provisional' : maturity.toLowerCase()
+    return `Datos reales del satélite NISAR · ${mat}`
+  }
   if (dataOrigin === 'simulated')
-    return 'SIMULATED · datos de prueba, no es un lugar real'
+    return 'Datos simulados de prueba · no es un lugar real'
   return `Procedencia sin clasificar: ${dataOrigin} · ${maturity}`
 }
 
@@ -240,14 +243,22 @@ export default function App() {
                   if (entry) setSelectedBundle(entry)
                 }}
               >
-                {config.bundles.map((b) => (
-                  <option
-                    key={`${b.aoi}/${b.version}`}
-                    value={`${b.aoi}/${b.version}`}
-                  >
-                    {b.aoi} / {b.version}
-                  </option>
-                ))}
+                {config.bundles.map((b) => {
+                  const label =
+                    b.aoi === 'tailandia-01'
+                      ? 'Tailandia (oeste de Ayutthaya)'
+                      : b.aoi === 'piura-demo'
+                        ? 'Piura demo'
+                        : b.aoi
+                  return (
+                    <option
+                      key={`${b.aoi}/${b.version}`}
+                      value={`${b.aoi}/${b.version}`}
+                    >
+                      {label} · {b.version}
+                    </option>
+                  )
+                })}
               </select>
             </label>
           )}
@@ -276,14 +287,14 @@ export default function App() {
           {view !== 'methodology' && config && loading && !error && (
             <section className="panel evidence-empty" role="status">
               <ShieldCheck size={25} />
-              <p>Verificando y cargando el bundle…</p>
+              <p>Verificando y cargando los datos…</p>
             </section>
           )}
           {view !== 'methodology' && error && (
             <section className="panel evidence-empty" role="alert">
               <TriangleAlert size={25} />
-              <h2>No se pudo cargar el bundle</h2>
-              <p>{error}</p>
+              <h2>No se pudieron cargar los datos</h2>
+              <p>No se pudo cargar el bundle: {error}</p>
               <button
                 className="primary-button"
                 onClick={() => window.location.reload()}
@@ -438,7 +449,7 @@ export default function App() {
             {verified ? 'Verificado' : 'Verificación con problemas'}:{' '}
             {verification.blocksChecked} bloques firmados por{' '}
             {selectedBundle ? abbrIssuer(selectedBundle.issuers[0]) : ''} ·
-            bundle {bundle.aoiId}/{bundle.bundleVersion} · instantánea{' '}
+            área {bundle.aoiId}/{bundle.bundleVersion} · instantánea{' '}
             {readableDateTime(verification.asOf)} · contrato{' '}
             {bundle.contractVersion}
             {!verification.ttlOk && ' · hay bloques fuera de vigencia'}
@@ -447,12 +458,12 @@ export default function App() {
         ) : (
           <span className="integrity-line">
             <ShieldCheck size={12} />{' '}
-            {error ? 'Bundle no verificado' : 'Verificando el bundle…'}
+            {error ? 'Datos no verificados' : 'Verificando los datos…'}
           </span>
         )}
         <span>
-          Orden de revisión sugerido para preparación · No es un pronóstico ·
-          © OpenStreetMap contributors
+          Orden de revisión sugerido para preparación · No es un pronóstico ·{' '}
+          {es.attribution.osm}
         </span>
       </footer>
     </div>
