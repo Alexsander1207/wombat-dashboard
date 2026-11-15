@@ -1,0 +1,122 @@
+/*
+ * Tema claro, según el sistema operativo.
+ *
+ * El diseño de Mireyamd y Ximenacode es oscuro ("ocean twilight") y sigue
+ * siéndolo cuando el sistema está en oscuro: este archivo no lo toca. Solo
+ * cuando el sistema pide claro (prefers-color-scheme: light) se redefinen sus
+ * variables y se corrigen los pocos colores que el diseño escribe a mano.
+ *
+ * Se carga el último (App.tsx) para ganar en la cascada sin editar los
+ * archivos del diseño. Los colores de datos (STATUS_FILL, rásteres) no son
+ * tema y no cambian.
+ */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    /* Superficies: azul muy pálido de fondo, paneles blancos. */
+    --app-background: #edf1f7;
+    --app-gradient: linear-gradient(135deg, #f4f7fb 0%, #edf0f8 60%, #f3eff6 100%);
+    --panel-background: rgba(255, 255, 255, 0.96);
+    --floating-background: rgba(255, 255, 255, 0.96);
+    --surface-raised: #ffffff;
+    --surface-soft: rgba(11, 114, 133, 0.07);
+    --hover-surface: rgba(11, 114, 133, 0.09);
+    --selected-surface: rgba(214, 90, 82, 0.1);
+
+    /* Tinta azul marino, la misma familia que la cabecera oscura. */
+    --text-primary: #13233a;
+    --text-secondary: #3a4e66;
+    --text-muted: #56687d;
+    --color-text: #13233a;
+    --color-muted: #56687d;
+
+    --ui-border: rgba(19, 35, 58, 0.13);
+    --border-strong: rgba(11, 114, 133, 0.45);
+
+    /* El turquesa y el coral de la marca, más profundos: sobre blanco el
+       original no llega a 3:1. Lo que va encima de ellos pasa a blanco. */
+    --color-turquoise: #0b7285;
+    --active-color: #0b7285;
+    --focus-ring: #0b7285;
+    --on-active: #ffffff;
+    --on-accent: #ffffff;
+    --selected-outline: #d1554d;
+
+    --shadow-panel: 0 10px 28px rgba(19, 35, 58, 0.09), inset 0 1px rgba(255, 255, 255, 0.7);
+
+    /* Mapa: fondo claro y líneas vectoriales oscuras (MapExplorer las lee). */
+    --map-background: #e3e8ef;
+    --map-roads: #2f6f86;
+    --map-grid-line: #3c4f63;
+    --map-boundary: #b48a12;
+    --map-priority-line: #13233a;
+
+    /* Verde de "verificado" y ámbar de "con problemas", legibles sobre claro. */
+    --verified-text: #0d6b47;
+    --verified-surface: rgba(13, 107, 71, 0.08);
+    --caution-text: #8a4b0c;
+    --caution-surface: rgba(138, 75, 12, 0.08);
+  }
+
+  /* La marca y los botones de la cabecera son azul marino translúcido: sobre
+     claro se lavan. Sólidos, el logotipo (que trae "WOMBAT" en crema) se lee. */
+  .app-header .brand,
+  .app-header .header-actions button {
+    background: var(--color-navy);
+    border-color: transparent;
+  }
+  /* Activo (en la metodología): turquesa profundo, como el resto de activos. */
+  .app-header .header-actions button.active {
+    background: var(--color-turquoise);
+    color: #ffffff;
+  }
+  .app-header .subtitle {
+    color: var(--text-primary);
+    background: rgba(19, 35, 58, 0.06);
+  }
+  .app-header .study-area-metadata {
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.86);
+  }
+
+  .integrity-chip.integrity-ok {
+    color: var(--verified-text);
+    background: var(--verified-surface);
+  }
+  .integrity-chip.integrity-bad {
+    color: var(--caution-text);
+    background: var(--caution-surface);
+  }
+  .app-footer .integrity-ok,
+  .evidence-card .provenance-mini,
+  .side-dock .provenance-mini {
+    color: var(--verified-text);
+  }
+  .app-footer .integrity-bad {
+    color: var(--caution-text);
+  }
+
+  /* Panel de capas: perilla blanca sobre el turquesa profundo y nota legible. */
+  .layer-row input:checked + .switch:after {
+    background: #ffffff;
+  }
+  .layer-panel .fixture-note {
+    color: var(--text-muted);
+  }
+
+  /* Casillas de métricas de la evidencia en el panel lateral. */
+  .side-dock .expanded-metrics > div {
+    background: var(--surface-soft);
+  }
+
+  /* Escala y norte del mapa: tinta oscura sobre el lienzo claro. */
+  .maplibregl-ctrl-scale {
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+  }
+  .north {
+    color: var(--color-navy);
+  }
+}

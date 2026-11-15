@@ -558,3 +558,44 @@
   min-height: 28px;
   font-size: 14px;
 }
+
+/*
+ * Móvil (≤ 1000 px). El diseño reservaba la altura del mapa con padding-top en
+ * .map-explorer porque su lienzo era hijo directo; desde la integración el
+ * lienzo vive dentro de .map-stage (flex: 1), que en móvil se quedaba con 0 px
+ * de alto y el mapa no se dibujaba. La altura va ahora en el propio contenedor.
+ *
+ * Los botones de zoom heredaban top (diseño) y bottom (integración) a la vez
+ * y se estiraban a lo alto del mapa.
+ *
+ * La rejilla de la cabecera tampoco tenía sitio para el selector de AOI, y la
+ * insignia de procedencia no podía encoger: la página medía más que la
+ * pantalla.
+ */
+@media (max-width: 1000px) {
+  .map-explorer {
+    padding-top: 0;
+  }
+  .map-stage {
+    flex: none;
+    height: var(--mobile-map-height);
+  }
+  .map-tools,
+  .has-selection .map-tools {
+    top: auto;
+    bottom: 16px;
+  }
+
+  .app-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .app-header .data-badge {
+    min-width: 0;
+    white-space: normal;
+  }
+  .app-header .aoi-picker {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+}

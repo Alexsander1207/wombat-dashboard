@@ -31,6 +31,9 @@ import './styles/mireya/brand.css'
 import './styles/mireya/navigation.css'
 import './styles/mireya/header.css'
 import './styles/integration.css'
+import './styles/interaction.css'
+// El último: tema claro cuando el sistema lo pide (el oscuro no cambia).
+import './styles/theme-light.css'
 
 type View = 'map' | 'evidence' | 'methodology'
 

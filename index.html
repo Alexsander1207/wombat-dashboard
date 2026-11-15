@@ -5,7 +5,14 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./brand/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="64x64" href="./brand/favicon-64.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#edf1f7" />
     <meta name="theme-color" content="#214B7D" />
+    <!-- Fondo del tema antes de que cargue el CSS: sin destello al abrir. -->
+    <style>
+      html { background: #14213c; }
+      @media (prefers-color-scheme: light) { html { background: #edf1f7; } }
+    </style>
     <meta
       name="description"
       content="WOMBAT ordena evidencia satelital verificada (NISAR, OPERA DSWx-S1, OpenStreetMap) para priorizar la revisión en campo en la cuenca del río Piura durante la preparación ante El Niño. Cada bloque se verifica en el navegador con SHA-256 y firma Ed25519."
