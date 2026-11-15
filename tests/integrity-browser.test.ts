@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { readFile, readdir, mkdtemp, rm, writeFile, stat, mkdir, copyFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -58,7 +58,7 @@ beforeAll(() => {
 
 // Mock de MapExplorer (sin WebGL)
 vi.mock("../src/components/MapExplorer.tsx", () => ({
-  MapExplorer: ({ bundle }: { bundle: { aoiId: string } }) =>
+  MapExplorer: ({ bundle }: { bundle: LoadedBundle }) =>
     React.createElement("div", { "data-testid": "map-view" },
       `Mapa: ${bundle.aoiId}`),
 }));
@@ -136,13 +136,13 @@ async function renderAppWithError(errorMessage: string) {
 }
 
 describe("(A) integridad en navegador", () => {
-  it("A.1 bundle válido: panel de integridad muestra 'Verificado: 21 bloques...'", async () => {
+  it("A.1 bundle válido: panel de integridad muestra 'Verificado: 21 signed blocks checked...'", async () => {
     const bundle = await realLoadAndVerify(BUNDLE_DIR, TRUSTED_ISSUERS, makeReadBytes(BUNDLE_DIR));
     await renderAppWithBundle(bundle);
     await waitFor(() => expect(screen.getByTestId("map-view")).toBeInTheDocument(), { timeout: 10000 });
-    const t = screen.getByText(/Verificado:/);
+    const t = screen.getByRole('region', { name: 'Verification summary' });
     expect(t).toBeInTheDocument();
-    expect(t.textContent).toContain("21 bloques");
+    expect(t.textContent).toContain("21 signed blocks checked");
     expect(t.textContent).toContain("piura-demo/v0");
     expect(t.textContent).toContain("1.0.0");
   }, 30000);
@@ -158,10 +158,10 @@ describe("(A) integridad en navegador", () => {
       await realLoadAndVerify(tmpDir, TRUSTED_ISSUERS, makeReadBytes(tmpDir));
     } catch (e) {
       await renderAppWithError((e as Error).message);
-      await waitFor(() => expect(screen.getByText(/No se pudo cargar el bundle/)).toBeInTheDocument(), { timeout: 10000 });
-      const t = screen.getByText(/no coinciden/);
+      await waitFor(() => expect(screen.getByText(/We could not load this data/)).toBeInTheDocument(), { timeout: 10000 });
+      const t = screen.getByText(/File check failed/);
       expect(t).toBeInTheDocument();
-      expect(t.textContent).toContain("1 de 30 archivo(s)");
+      expect(t.textContent).toContain("1 of 30 files");
     }
     await rm(tmpDir, { recursive: true, force: true });
   }, 30000);
@@ -178,8 +178,8 @@ describe("(A) integridad en navegador", () => {
       await realLoadAndVerify(tmpDir, TRUSTED_ISSUERS, makeReadBytes(tmpDir));
     } catch (e) {
       await renderAppWithError((e as Error).message);
-      await waitFor(() => expect(screen.getByText(/No se pudo cargar el bundle/)).toBeInTheDocument(), { timeout: 10000 });
-      const t = screen.getByText(/no coinciden|no verifican/);
+      await waitFor(() => expect(screen.getByText(/We could not load this data/)).toBeInTheDocument(), { timeout: 10000 });
+      const t = screen.getByText(/File check failed|Signature check failed/);
       expect(t).toBeInTheDocument();
     }
     await rm(tmpDir, { recursive: true, force: true });
@@ -200,9 +200,9 @@ describe("(A) integridad en navegador", () => {
     const restored = await realLoadAndVerify(tmpDir, TRUSTED_ISSUERS, makeReadBytes(tmpDir));
     await renderAppWithBundle(restored);
     await waitFor(() => expect(screen.getByTestId("map-view")).toBeInTheDocument(), { timeout: 10000 });
-    const t = screen.getByText(/Verificado:/);
+    const t = screen.getByRole('region', { name: 'Verification summary' });
     expect(t).toBeInTheDocument();
-    expect(t.textContent).toContain("21 bloques");
+    expect(t.textContent).toContain("21 signed blocks checked");
     await rm(tmpDir, { recursive: true, force: true });
   }, 30000);
 });
@@ -221,4 +221,70 @@ describe("(A.3bis) emisor no confiado", () => {
     ).rejects.toThrow(/emisores no autorizados|no verifican/);
     await rm(tmpDir, { recursive: true, force: true });
   }, 30000);
+});
+
+
+describe('Explorer fail-closed and verification details', () => {
+  it('does not render bundle data when TTL verification fails', async () => {
+    const bundle = await realLoadAndVerify(BUNDLE_DIR, TRUSTED_ISSUERS, makeReadBytes(BUNDLE_DIR));
+    await renderAppWithBundle({ ...bundle, verification: { ...bundle.verification, ttlOk: false, problems: ['expired snapshot TTL'] } });
+    await waitFor(() => expect(screen.getByText(/We could not load this data/)).toBeInTheDocument());
+    expect(screen.queryByTestId('map-view')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+  it('opens the actual verification explanation', async () => {
+    const bundle = await realLoadAndVerify(BUNDLE_DIR, TRUSTED_ISSUERS, makeReadBytes(BUNDLE_DIR));
+    await renderAppWithBundle(bundle);
+    await screen.findByTestId('map-view');
+    const button = screen.getByRole('button', { name: 'How was this checked?' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/Each file is checked/)).toBeVisible();
+  });
+  it('renders config fetch failure as an error instead of loading forever', async () => {
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('config unavailable'));
+    try {
+      const { default: App } = await import('../src/App.tsx');
+      render(React.createElement(App));
+      await screen.findByText('config unavailable');
+      expect(screen.queryByTestId('map-view')).not.toBeInTheDocument();
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+});
+  it('shows simple English Thailand summaries without a header status badge', async () => {
+    const dir = join(process.cwd(), 'public/bundles/tailandia-01/v1');
+    const config = JSON.parse(await readFile('dashboard.config.json', 'utf8')) as { bundles: { aoi: string; issuers: string[] }[] };
+    const entry = config.bundles.find(item => item.aoi === 'tailandia-01')!;
+    const bundle = await realLoadAndVerify(dir, entry.issuers.map(issuer => ({ issuer, roles: ['change', 'context', 'risk', 'action'] })), makeReadBytes(dir));
+    const { container } = await renderAppWithBundle(bundle);
+    await screen.findByTestId('map-view');
+    expect(container.querySelector('.explorer-header .banner')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Verified data' })).toBeVisible();
+    const verification = screen.getByRole('region', { name: 'Verification summary' });
+    expect(verification).toHaveTextContent('605 signed blocks checked');
+    expect(verification).toHaveTextContent('Bundle: tailandia-01/v1');
+    expect(verification).toHaveTextContent('Snapshot: 15 Nov 2026, 15:17 UTC');
+    const area = screen.getByRole('region', { name: 'Area summary' });
+    expect(area).toHaveTextContent('Central Thailand plain, west of Ayutthaya');
+    expect(area).toHaveTextContent('Purpose: method validation');
+    fireEvent.click(screen.getByText('About this data'));
+    expect(screen.getByText('Data status: Provisional')).toBeVisible();
+    expect(screen.getByText('This is real satellite data, but still under review.')).toBeVisible();
+    expect(screen.queryByText(/NISAR real/)).not.toBeInTheDocument();
+  });
+
+it('opens Methodology from the header and returns to the verified Explorer', async () => {
+  const bundle = await realLoadAndVerify(BUNDLE_DIR, TRUSTED_ISSUERS, makeReadBytes(BUNDLE_DIR));
+  await renderAppWithBundle(bundle);
+  await screen.findByTestId('map-view');
+  fireEvent.click(screen.getByRole('button', { name: 'Methodology' }));
+  expect(screen.getByRole('heading', { name: 'NISAR L2 GCOV: radar on a map' })).toBeVisible();
+  expect(screen.queryByTestId('map-view')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Back to map' }));
+  expect(await screen.findByTestId('map-view')).toHaveTextContent('piura-demo/v0');
+  expect(screen.getByRole('heading', { name: 'Verified data' })).toBeVisible();
 });
