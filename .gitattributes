@@ -1,0 +1,9 @@
+# Por defecto, LF en el repositorio.
+* text=auto eol=lf
+
+# Los bundles y fixtures se verifican por SHA-256 contra index.json y van
+# firmados con Ed25519: sus bytes deben llegar al disco EXACTAMENTE como se
+# firmaron. Sin esto, core.autocrlf=true en Windows reescribe los finales de
+# línea y toda la verificación falla (hash distinto al declarado).
+public/bundles/** -text
+tests/fixtures/** -text

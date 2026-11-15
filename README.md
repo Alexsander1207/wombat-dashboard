@@ -30,3 +30,17 @@ Cambiar de bundle = cambiar la entrada en dashboard.config.json, nunca tocar có
 - `src/components/MapView.tsx` — mapa MapLibre con overlays y celdas por estado.
 - `scripts/sync-data.mjs` — descarga, verifica y publica bundles inmutables.
 - `dashboard.config.json` — lista de bundles y emisores de confianza pinneados.
+
+## Créditos
+
+- **Verificación y contrato de datos** — Alexsander1207.
+- **Frontend: identidad visual, Explorer de mapa y página de metodología** —
+  Mireya (`@Mireyamd`) y Ximena (`@Ximenacode`).
+
+El trabajo de frontend se desarrolló originalmente en el repositorio
+`Mireyamd/Dashboard_Wambort`, rama `integration/wombat-combined`. Ese
+repositorio y este tienen historias de git independientes: no hay ancestro
+común entre ambos.
+
+Los archivos traídos desde allí están identificados en el encabezado de cada
+uno y en `docs/INTEGRACION-UI.md`.
