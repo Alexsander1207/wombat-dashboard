@@ -1,8 +1,8 @@
 /**
- * Tarjeta de "Cargando…" con barra de avance.
+ * Pantalla de "Cargando…": el wombat, el texto y la barra de avance, sin tarjeta.
  *
  * Usa el mismo marcado y las mismas clases que la pantalla de carga estática
- * de index.html (allí están los estilos): al montar React la tarjeta no salta,
+ * de index.html (allí están los estilos): al montar React nada salta, la barra
  * solo pasa de "esperando" a mostrar el avance real de la verificación.
  */
 import type { CSSProperties } from 'react'
@@ -19,14 +19,9 @@ interface Props {
 export function LoadingProgress({ progress }: Props) {
   const known = progress !== null && progress.total > 0
   const fraction = known ? progress.fraction : 0
-  // Hacia abajo: "100 %" solo cuando de verdad llegó todo.
+  // Hacia abajo: 100 solo cuando de verdad llegó todo. No se muestra; lo lee
+  // el lector de pantalla en la barra.
   const percent = Math.floor(fraction * 100)
-
-  const detail = !known
-    ? 'Preparando los datos'
-    : progress.stage === 'signatures'
-      ? 'Comprobando las firmas de los bloques'
-      : `Verificando archivos · ${progress.done} de ${progress.total}`
 
   return (
     <div className="boot-loader">
@@ -41,12 +36,9 @@ export function LoadingProgress({ progress }: Props) {
           />
           <img src={`${MASCOT}wombat-loading.webp`} width={120} height={80} alt="" />
         </picture>
-        <div className="boot-loader-head">
-          <p className="boot-loader-title" role="status">
-            Cargando…
-          </p>
-          {known && <span className="boot-loader-percent">{percent} %</span>}
-        </div>
+        <p className="boot-loader-title" role="status">
+          Cargando…
+        </p>
         <div
           className="boot-loader-track"
           role="progressbar"
@@ -60,7 +52,6 @@ export function LoadingProgress({ progress }: Props) {
             style={{ '--progress': fraction } as CSSProperties}
           />
         </div>
-        <p className="boot-loader-detail">{detail}</p>
       </section>
     </div>
   )
