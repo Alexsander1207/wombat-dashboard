@@ -166,7 +166,7 @@ export function MapExplorer({
           fitBoundsOptions: { padding: MAP_PADDING },
           minZoom: 8,
           maxZoom: 17,
-          attributionControl: true,
+          attributionControl: {},
           style: {
             version: 8,
             sources: {},
