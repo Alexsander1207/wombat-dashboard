@@ -32,17 +32,14 @@ import { DataStatus } from './DataStatus'
 import { MapLayerControls, type VisibleLayers } from './MapLayerControls'
 import { getMapDisplay } from '../frontend/mapDisplay'
 import { STATUS_FILL, STATUS_LEGEND } from '../frontend/statusColors.ts'
-import { useColorScheme } from '../hooks/useColorScheme.ts'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 // MapLibre v6 requires Vite to bundle its worker before any map is created.
 maplibregl.setWorkerUrl(workerUrl)
 
 /**
- * Colores de las capas vectoriales y del fondo, leídos del CSS para que sigan
- * el tema del sistema (src/styles/theme-light.css). Cada valor por defecto es
- * el color original del diseño oscuro. Los rásteres y STATUS_FILL no cambian:
- * son datos, no tema.
+ * Paleta fija del diseño original oscuro de Mireya/Ximena. Las capas científicas
+ * conservan sus colores de datos y no cambian según el tema del sistema.
  */
 function mapPalette() {
   const ui = getComputedStyle(document.documentElement)
@@ -112,7 +109,6 @@ export function MapExplorer({
   })
   const [split, setSplit] = useState(50),
     [opacity, setOpacity] = useState(60)
-  const scheme = useColorScheme()
   const popover = useRef<HTMLDivElement>(null)
   const top = bundle.ranked.slice(0, TOP_COUNT)
   const cellsById = useMemo(
@@ -464,21 +460,6 @@ export function MapExplorer({
       map.setPaintProperty('change', 'raster-opacity', display.changeOpacity)
     }
   }, [ready, layers, selected, opacity, compare])
-  // El tema del sistema cambió: los lienzos no leen CSS, se les repinta.
-  useEffect(() => {
-    if (!ready) return
-    const palette = mapPalette()
-    for (const map of maps.current) {
-      if (!map.getLayer('selected')) continue
-      map.setPaintProperty('background', 'background-color', palette.background)
-      map.setPaintProperty('water', 'line-color', palette.roads)
-      map.setPaintProperty('grid', 'line-color', palette.gridLine)
-      map.setPaintProperty('boundary', 'line-color', palette.boundary)
-      map.setPaintProperty('priority', 'line-color', palette.priority)
-      map.setPaintProperty('selected-halo', 'line-color', palette.selectionHalo)
-      map.setPaintProperty('selected', 'line-color', palette.selection)
-    }
-  }, [ready, scheme])
   const pairNote =
     bundle.mode === 'simulated'
       ? 'Imágenes simuladas de prueba'
