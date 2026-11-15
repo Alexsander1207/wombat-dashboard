@@ -113,7 +113,10 @@ export function MapExplorer({
   const scheme = useColorScheme()
   const popover = useRef<HTMLDivElement>(null)
   const top = bundle.ranked.slice(0, TOP_COUNT)
-  const cellsById = useMemo(() => new Map(bundle.cells.map((cell) => [cell.id, cell])), [bundle.cells])
+  const cellsById = useMemo(
+    () => new Map(bundle.cells.map((cell) => [cell.id, cell] as const)),
+    [bundle.cells],
+  )
   const [west, south, east, north] = bundle.bounds
   useEffect(() => {
     if (!controls) return
