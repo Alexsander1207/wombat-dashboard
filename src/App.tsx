@@ -33,6 +33,8 @@ import './styles/interaction.css'
 import './styles/theme-light.css'
 import './styles/live.css'
 import './components/Explorer.css'
+// El último: tema claro según el sistema y escala de texto (no edita el diseño).
+import './styles/ocean-polish.css'
 
 type View = 'map' | 'methodology'
 
