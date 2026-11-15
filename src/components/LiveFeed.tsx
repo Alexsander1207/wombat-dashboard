@@ -73,7 +73,6 @@ export function LiveFeed({
             {es.live.area} {latest.aoiId} · {es.live.issued}{' '}
             {readableDateTime(toMillis(latest.issuedAt))}
           </p>
-          {latest.message && <p className="live-message">{latest.message}</p>}
           <p className="live-trust">
             {latest.gatewayVerified ? es.live.gatewayVerified : es.live.gatewayUnverified}
           </p>

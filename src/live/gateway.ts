@@ -33,8 +33,6 @@ export interface LiveEvent {
   dataOrigin: string
   /** Lo que el gateway afirma de su propia verificación. No es la del navegador. */
   gatewayVerified: boolean
-  /** Aviso que el productor adjunta en la procedencia, si lo hay. */
-  message: string | null
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -46,18 +44,6 @@ function requireString(source: Record<string, unknown>, key: string): string {
     throw new Error(`el evento del gateway no trae "${key}"`)
   }
   return value
-}
-
-/** El primer `message` de `provenance.sources`, si existe y es texto. */
-function provenanceMessage(raw: Record<string, unknown>): string | null {
-  const provenance = raw.provenance
-  if (!isRecord(provenance) || !Array.isArray(provenance.sources)) return null
-  for (const source of provenance.sources) {
-    if (isRecord(source) && typeof source.message === 'string' && source.message) {
-      return source.message
-    }
-  }
-  return null
 }
 
 /**
@@ -84,7 +70,6 @@ export function parseLatestEvent(raw: unknown): LiveEvent {
     simulated: raw.simulation === true || dataOrigin !== 'nisar_real',
     dataOrigin,
     gatewayVerified: raw.verified === true,
-    message: provenanceMessage(raw),
   }
 }
 

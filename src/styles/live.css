@@ -63,15 +63,11 @@
   border: 1px dashed currentColor;
 }
 .live-meta,
-.live-message,
 .live-trust,
 .live-empty,
 .live-foot {
   margin: 6px 0 0;
   line-height: 1.45;
-}
-.live-message {
-  color: var(--text-primary);
 }
 .live-trust,
 .live-foot {

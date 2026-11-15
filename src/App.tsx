@@ -82,7 +82,7 @@ function originBadge(dataOrigin: string, maturity: string): string {
     return `Datos reales del satélite NISAR · ${mat}`
   }
   if (dataOrigin === 'simulated')
-    return 'Datos simulados de prueba · no es un lugar real'
+    return 'Datos de demostración'
   return `Procedencia sin clasificar: ${dataOrigin} · ${maturity}`
 }
 
