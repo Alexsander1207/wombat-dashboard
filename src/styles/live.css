@@ -1,0 +1,94 @@
+/* Panel "En vivo" del dock lateral (src/components/LiveFeed.tsx). */
+.live-feed {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 10px;
+  background: var(--surface-soft, rgba(118, 207, 223, 0.08));
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.live-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+.live-head strong {
+  font-size: 13px;
+}
+.live-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.live-online .live-dot {
+  background: var(--color-success, #2b958a);
+}
+.live-offline .live-dot {
+  background: var(--color-coral, #e97873);
+}
+.live-latest {
+  margin-top: 10px;
+}
+.live-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.live-line strong {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.live-origin {
+  padding: 2px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 999px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.live-origin.is-simulated {
+  background: var(--warning-surface, #fff0d0);
+  color: var(--warning-text, #54391c);
+  border: 1px dashed currentColor;
+}
+.live-meta,
+.live-message,
+.live-trust,
+.live-empty,
+.live-foot {
+  margin: 6px 0 0;
+  line-height: 1.45;
+}
+.live-message {
+  color: var(--text-primary);
+}
+.live-trust,
+.live-foot {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.live-history {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--ui-border);
+  display: grid;
+  gap: 4px;
+  font-size: 11.5px;
+}
+.live-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}

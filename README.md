@@ -15,6 +15,35 @@ formato del bundle (index.json + bloques WONB 0.2).
 
 Cambiar de bundle = cambiar la entrada en dashboard.config.json, nunca tocar código.
 
+## Modo vivo (gateway)
+
+Opcional. Si `dashboard.config.json` declara un `gateway`, el panel "En vivo"
+de la barra lateral consulta `<url>/api/v1/events/latest` cada `pollSeconds`
+(60 por defecto, 15 como mínimo) y muestra el último evento que publica el
+gateway de Wombat-core:
+
+```json
+"gateway": { "url": "https://<host-del-gateway>", "pollSeconds": 60 }
+```
+
+- **Es aditivo.** El mapa, el ranking y la insignia "Datos verificados" siguen
+  saliendo del bundle estático verificado en el navegador. Sin `gateway`, o si
+  el gateway no responde, el dashboard funciona igual (R17); el panel dice
+  "Sin conexión".
+- **No es verificación del navegador.** La respuesta del gateway no trae
+  `issuer` ni `signature`, así que el panel rotula el evento como "comprobado
+  por el gateway" y nunca lo suma a las firmas comprobadas.
+- **Lo simulado se rotula.** Un evento con `simulation: true`, o cuya
+  procedencia no sea `nisar_real`, lleva la insignia "Simulado".
+- **La URL va en los dos archivos.** `dashboard.config.json` y
+  `public/dashboard.config.json` deben ser idénticos (lo comprueba
+  `tests/config.test.ts`). Debe ser `https`: el sitio se sirve por https y el
+  navegador bloquearía un gateway `http`.
+- **Un túnel `trycloudflare.com` es temporal.** Su dirección cambia cada vez
+  que se reinicia; hay que actualizar la URL y volver a desplegar.
+
+El navegador habla HTTP con el gateway; nunca libp2p (R18).
+
 ## Scripts
 
 - `npm run dev` — servidor de desarrollo
