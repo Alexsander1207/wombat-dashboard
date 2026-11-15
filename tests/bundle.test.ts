@@ -5,11 +5,11 @@
  * y contra bundles manipulados creados en memoria.
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { readFile, readdir, mkdtemp, rm, writeFile, stat, mkdir, copyFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadAndVerify, releaseBundle, type LoadedBundle } from "../src/bundle/contract.ts";
+import { loadAndVerify, releaseBundle } from "../src/bundle/contract.ts";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 
@@ -22,8 +22,9 @@ const TRUSTED_ISSUERS = [
 ];
 
 beforeAll(() => {
-  if (typeof (globalThis.URL as any).createObjectURL === "undefined") {
-    (globalThis.URL as any).createObjectURL = () => "blob:mock";
+  const url = globalThis.URL as { createObjectURL?: () => string };
+  if (typeof url.createObjectURL === "undefined") {
+    url.createObjectURL = () => "blob:mock";
   }
 });
 
