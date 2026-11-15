@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { loadAndVerify, releaseBundle, type LoadedBundle } from "./bundle/contract.ts";
-import { MapView } from "./components/MapView.tsx";
+import { MapExplorer } from "./components/MapExplorer.tsx";
+import { toExplorer } from "./adapters/toExplorer.ts";
 import { Methodology } from "./pages/Methodology.tsx";
 import type { OverlayKey } from "./components/statusColors.ts";
-import { readableDateTime, percentFromBp, statusLabel } from "./format.ts";
+import { areaName, englishDateTime, friendlyError } from "./components/explorerCopy.ts";
 import "./App.css";
 
 /** Vista activa. Sin react-router: una sola pantalla con dos modos. */
@@ -13,12 +14,6 @@ type View = "mapa" | "metodologia";
 // /wombat-dashboard/, así que una ruta absoluta como "/dashboard.config.json"
 // da 404. import.meta.env.BASE_URL vale "/" en dev y "./" en el build.
 const CONFIG_URL = `${import.meta.env.BASE_URL}dashboard.config.json`;
-
-const OVERLAY_LABELS: Record<OverlayKey, string> = {
-  t1: "T1",
-  t2: "T2",
-  delta: "Delta",
-};
 
 interface BundleEntry {
   aoi: string;
@@ -36,37 +31,8 @@ interface BundleEntry {
 /** Roles que se conceden a una clave pinneada, igual que en sync-data.mjs. */
 const PINNED_ROLES = ["change", "context", "risk", "action"];
 
-/**
- * Insignia de procedencia, derivada del bloque `change` FIRMADO, nunca del
- * manifiesto: si los dos discrepan, contract.ts lo expone como
- * integrityWarning y la insignia sigue al dato firmado.
- */
-function originBadge(
-  dataOrigin: string,
-  maturity: string,
-): { className: string; text: string } {
-  if (dataOrigin === "nisar_real") {
-    return { className: "banner real", text: `NISAR real · ${maturity}` };
-  }
-  if (dataOrigin === "simulated") {
-    return {
-      className: "banner simulated",
-      text: "SIMULATED — fixture de desarrollo, no es un AOI real",
-    };
-  }
-  return {
-    className: "banner maturity",
-    text: `Procedencia sin clasificar: ${dataOrigin} · ${maturity}`,
-  };
-}
-
 interface Config {
   bundles: BundleEntry[];
-}
-
-function abbrIssuer(issuer: string): string {
-  const hex = issuer.replace("ed25519:", "");
-  return `${hex.slice(0, 12)}…${hex.slice(-8)}`;
 }
 
 export default function App() {
@@ -78,6 +44,8 @@ export default function App() {
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<BundleEntry | null>(null);
   const [view, setView] = useState<View>("mapa");
+  const [verificationOpen, setVerificationOpen] = useState(false);
+  const explorer = useMemo(() => bundle ? toExplorer(bundle) : null, [bundle]);
   const abortRef = useRef<AbortController | null>(null);
 
   // ── 1. Cargar configuración de bundles ───────────────────────────────
@@ -115,6 +83,8 @@ export default function App() {
 
     let cancelled = false;
     setLoading(true);
+    setBundle(null);
+    setSelectedCellId(null);
     setError(null);
 
     const base = `${import.meta.env.BASE_URL}bundles/${selectedBundle.aoi}/${selectedBundle.version}`;
@@ -130,8 +100,16 @@ export default function App() {
     loadAndVerify(base, issuers, undefined, controller.signal)
       .then((b) => {
         if (!cancelled && !controller.signal.aborted) {
-          setBundle(b);
+          const v = b.verification;
+          if (!(v.filesOk && v.blocksOk && v.chainOk && v.issuersOk && v.ttlOk)) {
+            releaseBundle(b);
+            setError(`Verificación incompleta: ${v.problems.join(' / ')}`);
+          } else {
+            setBundle(b);
+          }
           setLoading(false);
+        } else {
+          releaseBundle(b);
         }
       })
       .catch((cause) => {
@@ -157,61 +135,54 @@ export default function App() {
 
   // ── 4. Metodología: no depende del bundle, se lee siempre ────────────
   if (view === "metodologia") {
-    return <Methodology onBack={() => setView("mapa")} />;
+    return <Methodology onBack={() => setView("mapa")} bundle={bundle} />;
   }
 
   // ── 5. Estados de error y carga ──────────────────────────────────────
-  if (!config) {
-    return (
-      <div className="loading">
-        <p>Cargando configuración…</p>
-      </div>
-    );
-  }
   if (error) {
     return (
       <div className="error">
-        <h2>No se pudo cargar el bundle</h2>
-        <p>{error}</p>
-        <button onClick={() => window.location.reload()}>Reintentar</button>
+        <h2>We could not load this data</h2>
+        <p>{friendlyError(error)}</p>
+        <button onClick={() => window.location.reload()}>Try again</button>
         <button type="button" onClick={() => setView("metodologia")}>
-          Ver metodología
+          View methodology
         </button>
+      </div>
+    );
+  }
+  if (!config) {
+    return (
+      <div className="loading">
+        <p>Loading settings…</p>
       </div>
     );
   }
   if (!selectedBundle) {
     return (
       <div className="loading">
-        <p>Seleccionando área de interés…</p>
+        <p>Choosing an area…</p>
       </div>
     );
   }
-  if (loading || !bundle) {
+  if (loading || !bundle || !explorer) {
     return (
       <div className="loading">
-        <p>Verificando y cargando el bundle…</p>
+        <p>Checking the data before showing it…</p>
       </div>
     );
   }
 
   // ── 6. Render principal ──────────────────────────────────────────────
-  const top3 = bundle.actions.slice(0, 3);
-  const badge = originBadge(bundle.dataOrigin, bundle.manifest.maturity);
-  const highCount = bundle.cells.filter((c) => c.status === "review_high").length;
-  const mediumCount = bundle.cells.filter((c) => c.status === "review_medium").length;
-  const lowCount = bundle.cells.filter((c) => c.status === "review_low").length;
-  const insufficientCount = bundle.cells.filter((c) => c.status === "insufficient_quality").length;
-  const issuerAbbr = abbrIssuer(selectedBundle.issuers[0]);
-
   return (
-    <div className="app">
-      <div className={badge.className}>
-        {badge.text} · {bundle.manifest.aoiName}
-      </div>
-      <header className="toolbar">
+    <div className="app explorer-app">
+      <header className="toolbar explorer-header">
+        <a className="explorer-brand" href="#explorer" aria-label="WOMBAT Explorer">
+          <img src={`${import.meta.env.BASE_URL}brand/wombat-explorer-full-480.webp`} alt="WOMBAT Explorer" width="188" height="54" />
+        </a>
+        <span className="explorer-header-caption">Surface change analysis <small>OCEAN EDITION</small></span>
         <label htmlFor="aoi-selector">
-          Área de interés:
+          Area of interest:
           <select
             id="aoi-selector"
             value={`${selectedBundle.aoi}/${selectedBundle.version}`}
@@ -228,104 +199,56 @@ export default function App() {
             ))}
           </select>
         </label>
-        <label>
-          Overlay:
-          <select
-            value={overlay}
-            onChange={(e) => setOverlay(e.target.value as OverlayKey)}
-          >
-            {Object.entries(OVERLAY_LABELS).map(([key, label]) => (
-              <option key={key} value={key as OverlayKey}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="meta">
-          {bundle.manifest.aoiName} · {bundle.bundleVersion} ·
-          {readableDateTime(bundle.verification.asOf)} · instantánea
-        </span>
         <button
           className="view-toggle"
           type="button"
           onClick={() => setView("metodologia")}
         >
-          Metodología
+          Methodology
         </button>
       </header>
-      <div className="mapa">
-        <MapView
-          bundle={bundle}
-          overlay={overlay}
-          selectedCellId={selectedCellId}
-          onSelectCell={setSelectedCellId}
-        />
-      </div>
-      <aside className="panel">
-        {/* Panel de integridad, visible sin hacer clic */}
-        <div className="integrity-panel">
-          <p className="integrity-line">
-            Verificado: {bundle.verification.blocksChecked} bloques firmados por
-            <span className="issuer-abbr">{issuerAbbr}</span> ·
-            bundle {bundle.aoiId}/{bundle.bundleVersion} ·
-            instantánea {readableDateTime(bundle.verification.asOf)} ·
-            contrato {bundle.contractVersion}
-          </p>
-          <button className="verify-how" type="button" aria-expanded="false">
-            ¿Cómo se verificó?
+      <MapExplorer
+        key={`${bundle.aoiId}/${bundle.bundleVersion}`}
+        bundle={explorer}
+        overlay={overlay}
+        onOverlayChange={setOverlay}
+        selectedCellId={selectedCellId}
+        onSelectCell={setSelectedCellId}
+        onGuide={() => setView("metodologia")}
+      />
+      <aside className="explorer-integrity" aria-label="Data summaries">
+        <section className="integrity-panel" aria-label="Verification summary">
+          <h2>Verified data</h2>
+          <p className="integrity-line">{bundle.verification.blocksChecked} signed blocks checked</p>
+          <p className="explorer-summary-meta">Bundle: {bundle.aoiId}/{bundle.bundleVersion}</p>
+          <p className="explorer-summary-meta">Snapshot: {englishDateTime(bundle.verification.asOf)}</p>
+          <button className="verify-how" type="button" aria-expanded={verificationOpen} aria-controls="verification-detail" onClick={() => setVerificationOpen(open => !open)}>
+            How was this checked?
           </button>
-          <div className="verify-how-detail" hidden>
+          <div id="verification-detail" className="verify-how-detail" hidden={!verificationOpen}>
+            <strong>How the checks work</strong>
             <ol>
-              <li>sha256 de cada archivo contra index.json.</li>
-              <li>Firma Ed25519 de cada bloque con la clave fijada en dashboard.config.json.</li>
-              <li>Cadena de padres: cada bloque apunta a padres presentes.</li>
-              <li>TTL contra la fecha de la instantánea (generated_at), no contra el reloj.</li>
+              <li>Each file is checked for changes using its SHA-256 fingerprint.</li>
+              <li>Each digital signature is checked against a trusted signer.</li>
+              <li>Linked records are checked to make sure none are missing.</li>
+              <li>Expiry dates are checked against the snapshot date.</li>
             </ol>
+            <p>{bundle.verification.filesChecked} files checked · Contract {bundle.contractVersion}</p>
+            <p>Trusted signer: <code>{selectedBundle.issuers[0]}</code></p>
           </div>
-          {bundle.integrityWarning && (
-            <div className="integrity-warning">
-              ⚠ {bundle.integrityWarning}
-            </div>
-          )}
-        </div>
-
-        <h2>Top 3 — orden de revisión sugerido</h2>
-        <p>
-          Madurez: <strong>{bundle.manifest.maturity}</strong> ·
-          Intervalo: {readableDateTime(bundle.t1)} → {readableDateTime(bundle.t2)} ·
-          OPERA derivado de Sentinel-1 ({bundle.manifest.operaDerivedFrom})
-        </p>
-        <ul>
-          {top3.map((action) => {
-            const cell = bundle.cells.find((c) => c.cellId === action.cellId);
-            return (
-              <li key={action.cellId}>
-                <strong>#{action.rank} {action.cellId}</strong> —
-                {statusLabel(cell ? cell.status : "insufficient_quality")}
-                {cell && cell.scoreBp !== null ? ` (${percentFromBp(cell.scoreBp)})` : ""}
-                <p className="explanation">{cell ? cell.explanation.join(" ") : ""}</p>
-              </li>
-            );
-          })}
-        </ul>
-        <div className="status-summary">
-          <span>{highCount} revisar primero</span>
-          <span>{mediumCount} revisar después</span>
-          <span>{lowCount} sin prioridad</span>
-          <span>{insufficientCount} datos insuficientes</span>
-        </div>
-        <p className="attribution">
-          © OpenStreetMap contributors
-        </p>
+          {bundle.integrityWarning && <p className="integrity-warning" role="status">The source note differs from the signed record. The signed record is used.</p>}
+        </section>
+        <section className="explorer-area-summary" aria-label="Area summary">
+          <h2>Area summary</h2>
+          <p>{areaName(bundle)}</p>
+          {bundle.aoiId === 'tailandia-01' && <p className="explorer-summary-meta">Purpose: method validation</p>}
+          <details className="explorer-data-note"><summary>About this data</summary>
+            <p>Data status: {bundle.dataOrigin === 'simulated' ? 'SIMULATED — sample data' : bundle.manifest.maturity.charAt(0).toUpperCase() + bundle.manifest.maturity.slice(1).toLowerCase()}</p>
+            <p>{bundle.dataOrigin === 'nisar_real' ? 'This is real satellite data, but still under review.' : bundle.dataOrigin === 'simulated' ? 'This is a demo, not real satellite data.' : `Source: ${bundle.dataOrigin}`}</p>
+          </details>
+        </section>
       </aside>
-      {selectedCellId && (
-        <div className="cell-info">
-          <button className="close" onClick={() => setSelectedCellId(null)}>
-            ×
-          </button>
-          <p>Celda: {selectedCellId}</p>
-        </div>
-      )}
+
     </div>
   );
 }
