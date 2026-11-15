@@ -16,6 +16,8 @@ import {
 import { toExplorer, type ExplorerCell } from './adapters/toExplorer.ts'
 import { MapExplorer } from './components/MapExplorer.tsx'
 import { BrandLogo } from './components/BrandLogo'
+import { LiveFeed } from './components/LiveFeed.tsx'
+import { pollSecondsOf, useLiveEvents, type GatewayConfig } from './hooks/useLiveEvents.ts'
 import { Methodology } from './pages/Methodology.tsx'
 import { englishDateTime as readableDateTime, areaName, friendlyError } from './components/explorerCopy.ts'
 import './App.css'
@@ -27,6 +29,7 @@ import './styles/integration.css'
 import './styles/interaction.css'
 // Keep the shared theme available; scoped Ocean styles below own the Explorer.
 import './styles/theme-light.css'
+import './styles/live.css'
 import './components/Explorer.css'
 
 type View = 'map' | 'methodology'
@@ -49,6 +52,11 @@ interface BundleEntry {
 
 interface Config {
   bundles: BundleEntry[]
+  /**
+   * Gateway del modo vivo. Opcional: sin él, el dashboard es el de siempre,
+   * solo con bundles estáticos (R17).
+   */
+  gateway?: GatewayConfig
 }
 
 /** Roles que se conceden a una clave pinneada, igual que en sync-data.mjs. */
@@ -66,6 +74,9 @@ export default function App() {
   const [controls, setControls] = useState(false)
   const [verificationOpen, setVerificationOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  // Modo vivo: aditivo. No toca `bundle` ni la verificación de abajo.
+  const gateway = config?.gateway ?? null
+  const live = useLiveEvents(gateway)
 
   // ── 1. Cargar configuración de bundles ───────────────────────────────
   useEffect(() => {
@@ -249,6 +260,12 @@ export default function App() {
                 <p>Data status: {bundle.dataOrigin === 'simulated' ? 'SIMULATED — sample data' : bundle.manifest.maturity.charAt(0).toUpperCase() + bundle.manifest.maturity.slice(1).toLowerCase()}</p>
                 <p>{bundle.dataOrigin === 'nisar_real' ? 'This is real satellite data, but still under review.' : bundle.dataOrigin === 'simulated' ? 'This is a demo, not real satellite data.' : `Source: ${bundle.dataOrigin}`}</p>
                 <p>{explorer.cells.length} cells · {explorer.ranked.length} ranked · {explorer.cells.filter(c => c.status === 'insufficient_quality').length} without enough usable data</p>
+                {gateway && (
+                  <details className="explorer-accordion">
+                    <summary>Live feed</summary>
+                    <LiveFeed state={live} pollSeconds={pollSecondsOf(gateway)} />
+                  </details>
+                )}
               </details>
             </section>
           </aside>

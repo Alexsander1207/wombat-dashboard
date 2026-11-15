@@ -44,10 +44,8 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 maplibregl.setWorkerUrl(workerUrl)
 
 /**
- * Colores de las capas vectoriales y del fondo, leídos del CSS para que sigan
- * el tema del sistema (src/styles/theme-light.css). Cada valor por defecto es
- * el color original del diseño oscuro. Los rásteres y STATUS_FILL no cambian:
- * son datos, no tema.
+ * Paleta fija del diseño original oscuro de Mireya/Ximena. Las capas científicas
+ * conservan sus colores de datos y no cambian según el tema del sistema.
  */
 function mapPalette() {
   const ui = getComputedStyle(document.querySelector('.explorer-app') ?? document.documentElement)
@@ -66,6 +64,7 @@ function mapPalette() {
 
 /** Default camera padding; selection reserves room for the floating panels. */
 const MAP_PADDING = 36
+let mapInstanceSequence = 0
 const OSM_ATTRIBUTION = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>'
 
 /**
@@ -175,8 +174,9 @@ export function MapExplorer({
       const [w, s, e, n] = bundle.bounds
       const topCells = bundle.ranked.slice(0, TOP_COUNT)
       const makeMap = (container: HTMLDivElement, before: boolean) => {
-        const startedAt = `wombat:map:${before ? 'comparison' : 'base'}:start`
-        const loadedAt = `wombat:map:${before ? 'comparison' : 'base'}:loaded`
+        const mapId = ++mapInstanceSequence
+        const startedAt = `wombat:map:${mapId}:start`
+        const loadedAt = `wombat:map:${mapId}:loaded`
         performance.mark(startedAt)
         const map = new maplibregl.Map({
           container,
@@ -185,7 +185,7 @@ export function MapExplorer({
             [e, n],
           ],
           fitBoundsOptions: { padding: MAP_PADDING },
-          minZoom: 8,
+          minZoom: 5,
           maxZoom: 17,
           attributionControl: {},
           style: {

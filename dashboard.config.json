@@ -16,5 +16,9 @@
         "ed25519:92b8169774b5f100de3f37b5ec63b9a10100ae6d1983c4bbdc9b9e7ca6f014be"
       ]
     }
-  ]
+  ],
+  "gateway": {
+    "url": "https://hill-reel-beam-freebsd.trycloudflare.com",
+    "pollSeconds": 60
+  }
 }
