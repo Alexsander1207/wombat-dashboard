@@ -7,14 +7,6 @@
       "issuers": [
         "ed25519:92b8169774b5f100de3f37b5ec63b9a10100ae6d1983c4bbdc9b9e7ca6f014be"
       ]
-    },
-    {
-      "aoi": "test-aoi",
-      "version": "v0",
-      "source": "./public/bundles/test-aoi",
-      "issuers": [
-        "ed25519:92b8169774b5f100de3f37b5ec63b9a10100ae6d1983c4bbdc9b9e7ca6f014be"
-      ]
     }
   ]
 }

@@ -31,5 +31,3 @@ dist-ssr
 # podría divergir de la firmada, que es exactamente lo que el contrato evita.
 public/data/
 
-# Bundle de prueba local para multi-AOI (no se versiona).
-public/bundles/test-aoi/
