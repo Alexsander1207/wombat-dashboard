@@ -53,9 +53,14 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.live-origin.is-simulated {
-  color: var(--ocean-warn-ink, #f4d58a);
-  border: 1px dashed currentColor;
+/* Procedencia: discreta para los datos de demostración, con acento para los reales. */
+.live-origin {
+  color: var(--ocean-muted, #afc3d7);
+}
+.live-origin.is-real {
+  color: var(--ocean-teal, #76cfdf);
+  border-color: var(--ocean-tint-border, rgba(118, 207, 223, 0.4));
+  background: var(--ocean-tint, rgba(118, 207, 223, 0.07));
 }
 .live-history {
   list-style: none;

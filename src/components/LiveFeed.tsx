@@ -1,17 +1,32 @@
 /**
- * Tarjeta "Live": el último evento que publica el gateway.
+ * Tarjeta "Live": lo más reciente del área que se está viendo.
  *
- * Va aparte del mapa y de "Verified data" a propósito. Lo que se muestra aquí
- * no pasó por la verificación del navegador (ver src/live/gateway.ts), y si el
- * evento es simulado se dice en la misma tarjeta.
+ * Sigue al área elegida en "Area of interest". Muestra, por orden:
+ *
+ *  1. El último evento que el gateway publica para ESA área, si lo hay. No
+ *     pasó por la verificación del navegador (ver src/live/gateway.ts), y la
+ *     tarjeta lo dice.
+ *  2. Si la red todavía no trae nada de esa área, el registro `change` firmado
+ *     del propio paquete de datos, que este navegador sí verificó.
+ *
+ * La procedencia sale siempre del dato: "Real NISAR data" solo si el evento o
+ * el paquete lo declaran real; lo demás se rotula como dato de demostración.
  *
  * Usa la clase `integrity-panel` para verse igual que las otras tarjetas del
  * pie del Explorer (Explorer.css); lo propio está en src/styles/live.css.
  */
 import { Radio } from 'lucide-react'
-import type { LiveEvent } from '../live/gateway.ts'
 import type { LiveState } from '../hooks/useLiveEvents.ts'
 import { englishDateTime } from './explorerCopy.ts'
+
+/** Lo que la tarjeta necesita saber del área que se está viendo. */
+export interface LiveArea {
+  aoiId: string
+  /** `data_origin` del bloque `change` firmado del paquete. */
+  dataOrigin: string
+  /** `issued_at` del bloque `change` firmado del paquete. */
+  issuedAt: string
+}
 
 const EVENT_TYPES: Record<string, string> = {
   change: 'Change observed',
@@ -41,9 +56,10 @@ function eventTypeLabel(type: string): string {
   return EVENT_TYPES[type] ?? type
 }
 
-function originLabel(event: LiveEvent): string {
-  if (event.simulated) return 'Simulated'
-  return event.dataOrigin === 'nisar_real' ? 'Real NISAR data' : 'Unclassified source'
+/** Etiqueta de procedencia: real solo si el dato lo declara real. */
+function originLabel(real: boolean, dataOrigin: string): string {
+  if (real) return 'Real NISAR data'
+  return dataOrigin === 'simulated' ? 'Demo data' : 'Unclassified source'
 }
 
 function clockTime(iso: string | null): string {
@@ -56,11 +72,19 @@ function clockTime(iso: string | null): string {
 export function LiveFeed({
   state,
   pollSeconds,
+  area,
 }: {
   state: LiveState
   pollSeconds: number
+  area: LiveArea
 }) {
-  const [latest, ...earlier] = state.events
+  // Solo cuentan los eventos del área que se está viendo.
+  const [latest, ...earlier] = state.events.filter((event) => event.aoiId === area.aoiId)
+
+  const real = latest
+    ? !latest.simulated
+    : area.dataOrigin === 'nisar_real'
+  const origin = originLabel(real, latest ? latest.dataOrigin : area.dataOrigin)
 
   return (
     <section className={`integrity-panel live-feed live-${state.status}`} aria-label="Live feed">
@@ -73,31 +97,33 @@ export function LiveFeed({
         </span>
       </header>
 
+      <p className="integrity-line live-line">
+        {eventTypeLabel(latest ? latest.type : 'change')}
+        <span className={`live-origin ${real ? 'is-real' : ''}`}>{origin}</span>
+      </p>
+      <p className="explorer-summary-meta">
+        Area: {area.aoiId} · issued{' '}
+        {englishDateTime(toMillis(latest ? latest.issuedAt : area.issuedAt))}
+      </p>
+
       {latest ? (
-        <>
-          <p className="integrity-line live-line">
-            {eventTypeLabel(latest.type)}
-            <span className={`live-origin ${latest.simulated ? 'is-simulated' : ''}`}>
-              {originLabel(latest)}
-            </span>
-          </p>
-          <p className="explorer-summary-meta">
-            Area: {latest.aoiId} · issued {englishDateTime(toMillis(latest.issuedAt))}
-          </p>
-          <p className="explorer-summary-meta">
-            {latest.gatewayVerified
-              ? 'Checked by the gateway, not by this browser.'
-              : 'The gateway does not mark it as checked.'}
-          </p>
-          {state.status === 'offline' && (
-            <p className="explorer-summary-meta">{OFFLINE_DETAIL}</p>
-          )}
-        </>
+        <p className="explorer-summary-meta">
+          {latest.gatewayVerified
+            ? 'Checked by the gateway, not by this browser.'
+            : 'The gateway does not mark it as checked.'}
+        </p>
       ) : (
         <p className="explorer-summary-meta">
-          {state.status === 'offline'
-            ? OFFLINE_DETAIL
-            : 'Waiting for the first event from the gateway…'}
+          Signed record from this area&apos;s data, verified in this browser.
+        </p>
+      )}
+
+      {state.status === 'offline' && (
+        <p className="explorer-summary-meta">{OFFLINE_DETAIL}</p>
+      )}
+      {state.status === 'online' && !latest && (
+        <p className="explorer-summary-meta">
+          No newer event on the network for this area yet.
         </p>
       )}
 

@@ -17,10 +17,11 @@ Cambiar de bundle = cambiar la entrada en dashboard.config.json, nunca tocar có
 
 ## Modo vivo (gateway)
 
-Opcional. Si `dashboard.config.json` declara un `gateway`, el panel "En vivo"
-de la barra lateral consulta `<url>/api/v1/events/latest` cada `pollSeconds`
-(60 por defecto, 15 como mínimo) y muestra el último evento que publica el
-gateway de Wombat-core:
+Opcional. Si `dashboard.config.json` declara un `gateway`, la tarjeta "Live"
+del pie consulta `<url>/api/v1/events/<aoi>` cada `pollSeconds` (60 por
+defecto, 15 como mínimo), donde `<aoi>` es el área elegida en "Area of
+interest", y muestra el último evento que el gateway de Wombat-core publica
+para esa área:
 
 ```json
 "gateway": { "url": "https://<host-del-gateway>", "pollSeconds": 60 }
@@ -28,13 +29,19 @@ gateway de Wombat-core:
 
 - **Es aditivo.** El mapa, el ranking y la insignia "Datos verificados" siguen
   saliendo del bundle estático verificado en el navegador. Sin `gateway`, o si
-  el gateway no responde, el dashboard funciona igual (R17); el panel dice
-  "Sin conexión".
+  el gateway no responde, el dashboard funciona igual (R17); la tarjeta dice
+  "Offline".
+- **Sigue al área.** Si el gateway responde que esa área todavía no tiene
+  eventos (404 `no_verified_events`), la tarjeta muestra el registro `change`
+  firmado del propio bundle de esa área, que el navegador sí verificó, y avisa
+  de que en la red aún no hay nada más reciente. Nunca muestra el evento de
+  otra área.
 - **No es verificación del navegador.** La respuesta del gateway no trae
   `issuer` ni `signature`, así que el panel rotula el evento como "comprobado
   por el gateway" y nunca lo suma a las firmas comprobadas.
-- **Lo simulado se rotula.** Un evento con `simulation: true`, o cuya
-  procedencia no sea `nisar_real`, lleva la insignia "Simulado".
+- **La procedencia sale del dato.** "Real NISAR data" solo si el evento (o el
+  bundle) declara `nisar_real` sin marca de simulación; un evento con
+  `simulation: true` lleva la etiqueta "Demo data".
 - **La URL va en los dos archivos.** `dashboard.config.json` y
   `public/dashboard.config.json` deben ser idénticos (lo comprueba
   `tests/config.test.ts`). Debe ser `https`: el sitio se sirve por https y el

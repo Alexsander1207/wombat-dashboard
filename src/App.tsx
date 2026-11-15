@@ -81,7 +81,7 @@ export default function App() {
   const abortRef = useRef<AbortController | null>(null)
   // Modo vivo: aditivo. No toca `bundle` ni la verificación de abajo.
   const gateway = config?.gateway ?? null
-  const live = useLiveEvents(gateway)
+  const live = useLiveEvents(gateway, selectedBundle?.aoi ?? null)
 
   // ── 1. Cargar configuración de bundles ───────────────────────────────
   useEffect(() => {
@@ -279,7 +279,10 @@ export default function App() {
                 <p>{explorer.cells.length} cells · {explorer.ranked.length} ranked · {explorer.cells.filter(c => c.status === 'insufficient_quality').length} without enough usable data</p>
               </details>
             </section>
-            {gateway && <LiveFeed state={live} pollSeconds={pollSecondsOf(gateway)} />}
+            {gateway && (
+              <LiveFeed state={live} pollSeconds={pollSecondsOf(gateway)}
+                area={{ aoiId: bundle.aoiId, dataOrigin: bundle.dataOrigin, issuedAt: bundle.signedBlocks.change.issuedAt }} />
+            )}
           </aside>
         </>
       )}

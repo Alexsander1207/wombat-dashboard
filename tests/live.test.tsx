@@ -9,7 +9,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, render, renderHook, screen } from '@testing-library/react'
 import {
-  latestEventUrl,
+  areaEventUrl,
   parseLatestEvent,
   type LiveEvent,
 } from '../src/live/gateway.ts'
@@ -92,8 +92,8 @@ describe('parseLatestEvent', () => {
   })
 
   it('arma la URL del API sin duplicar barras', () => {
-    expect(latestEventUrl('https://gw.example/')).toBe('https://gw.example/api/v1/events/latest')
-    expect(latestEventUrl('https://gw.example')).toBe('https://gw.example/api/v1/events/latest')
+    expect(areaEventUrl('https://gw.example/', 'piura-demo')).toBe('https://gw.example/api/v1/events/piura-demo')
+    expect(areaEventUrl('https://gw.example', 'tailandia-01')).toBe('https://gw.example/api/v1/events/tailandia-01')
   })
 })
 
@@ -123,7 +123,7 @@ describe('useLiveEvents', () => {
   it('sin gateway configurado no hace ninguna petición', () => {
     const fetchMock = okFetch(gatewayResponse())
     vi.stubGlobal('fetch', fetchMock)
-    const { result } = renderHook(() => useLiveEvents(null))
+    const { result } = renderHook(() => useLiveEvents(null, 'piura-demo'))
     expect(fetchMock).not.toHaveBeenCalled()
     expect(result.current.events).toEqual([])
   })
@@ -134,11 +134,11 @@ describe('useLiveEvents', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const { result } = renderHook(() =>
-      useLiveEvents({ url: 'https://gw.example', pollSeconds: 60 }),
+      useLiveEvents({ url: 'https://gw.example', pollSeconds: 60 }, 'piura-demo'),
     )
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock.mock.calls[0][0]).toBe('https://gw.example/api/v1/events/latest')
+    expect(fetchMock.mock.calls[0][0]).toBe('https://gw.example/api/v1/events/piura-demo')
     expect(result.current.status).toBe('online')
     expect(result.current.events).toHaveLength(1)
 
@@ -157,7 +157,7 @@ describe('useLiveEvents', () => {
     const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
 
     const { result } = renderHook(() =>
-      useLiveEvents({ url: 'https://gw.example', pollSeconds: 60 }),
+      useLiveEvents({ url: 'https://gw.example', pollSeconds: 60 }, 'piura-demo'),
     )
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     expect(fetchMock).not.toHaveBeenCalled()
@@ -173,6 +173,41 @@ describe('useLiveEvents', () => {
     visibility.mockRestore()
   })
 
+  it('pide el evento del área elegida y cambia de URL al cambiar de área', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).endsWith('/piura-demo')
+        ? new Response(JSON.stringify(gatewayResponse()), { status: 200 })
+        : new Response(JSON.stringify({ error: 'no_verified_events' }), { status: 404 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { result, rerender } = renderHook(
+      ({ aoi }: { aoi: string }) => useLiveEvents({ url: 'https://gw.example' }, aoi),
+      { initialProps: { aoi: 'piura-demo' } },
+    )
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.events).toHaveLength(1)
+
+    rerender({ aoi: 'tailandia-01' })
+    // Lo visto de Piura no se arrastra a Tailandia ni un render.
+    expect(result.current.events).toEqual([])
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe('https://gw.example/api/v1/events/tailandia-01')
+    // El gateway responde, pero esa área aún no tiene eventos: conectado y vacío.
+    expect(result.current.status).toBe('online')
+    expect(result.current.events).toEqual([])
+  })
+
+  it('no acepta un evento de otra área como si fuera de la pedida', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', okFetch(gatewayResponse({ aoi_id: 'piura-demo' })))
+    const { result } = renderHook(() => useLiveEvents({ url: 'https://gw.example' }, 'tailandia-01'))
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    expect(result.current.status).toBe('online')
+    expect(result.current.events).toEqual([])
+  })
+
   it('si el gateway cae, queda sin conexión y conserva lo ya visto', async () => {
     vi.useFakeTimers()
     const fetchMock = vi
@@ -182,7 +217,7 @@ describe('useLiveEvents', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const { result } = renderHook(() =>
-      useLiveEvents({ url: 'https://gw.example', pollSeconds: 60 }),
+      useLiveEvents({ url: 'https://gw.example', pollSeconds: 60 }, 'piura-demo'),
     )
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     expect(result.current.status).toBe('online')
@@ -196,7 +231,7 @@ describe('useLiveEvents', () => {
   it('un HTTP de error cuenta como sin conexión', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('fetch', vi.fn(async () => new Response('caído', { status: 502 })))
-    const { result } = renderHook(() => useLiveEvents({ url: 'https://gw.example' }))
+    const { result } = renderHook(() => useLiveEvents({ url: 'https://gw.example' }, 'piura-demo'))
     await act(async () => { await vi.advanceTimersByTimeAsync(0) })
     expect(result.current.status).toBe('offline')
     expect(result.current.error).toMatch(/502/)
@@ -206,6 +241,8 @@ describe('useLiveEvents', () => {
 
 describe('LiveFeed', () => {
   const event = parseLatestEvent(gatewayResponse())
+  const piura = { aoiId: 'piura-demo', dataOrigin: 'simulated', issuedAt: '2026-11-14T17:00:00Z' }
+  const thailand = { aoiId: 'tailandia-01', dataOrigin: 'nisar_real', issuedAt: '2026-11-15T15:17:00Z' }
   const online: LiveState = {
     status: 'online',
     events: [event],
@@ -213,11 +250,12 @@ describe('LiveFeed', () => {
     error: null,
   }
 
-  it('muestra el evento, que es simulado y que la firma no se verificó aquí', () => {
-    render(<LiveFeed state={online} pollSeconds={60} />)
+  it('con evento del área: lo muestra, como dato de demostración y sin firma verificada aquí', () => {
+    render(<LiveFeed state={online} pollSeconds={60} area={piura} />)
     expect(screen.getByText('Change observed')).toBeInTheDocument()
-    expect(screen.getByText('Simulated')).toBeInTheDocument()
-    // El aviso largo del productor no se muestra: basta la insignia.
+    expect(screen.getByText('Demo data')).toBeInTheDocument()
+    expect(screen.queryByText('Simulated')).not.toBeInTheDocument()
+    // El aviso largo del productor no se muestra: basta la etiqueta.
     expect(screen.queryByText(/DEMO SIMULADA/)).not.toBeInTheDocument()
     expect(screen.getByText(/not by this browser/)).toBeInTheDocument()
     expect(screen.getByText(/Updates every 60 s/)).toBeInTheDocument()
@@ -225,15 +263,32 @@ describe('LiveFeed', () => {
     expect(screen.getByText(/piura-demo · issued .*2026.*UTC/)).toBeInTheDocument()
   })
 
-  it('sin conexión lo dice y aclara que el mapa sigue funcionando', () => {
+  it('un evento simulado nunca se rotula como dato real', () => {
+    render(<LiveFeed state={online} pollSeconds={60} area={{ ...piura, dataOrigin: 'nisar_real' }} />)
+    expect(screen.queryByText('Real NISAR data')).not.toBeInTheDocument()
+    expect(screen.getByText('Demo data')).toBeInTheDocument()
+  })
+
+  it('en Tailandia no muestra el evento de Piura: usa el registro firmado del área', () => {
+    render(<LiveFeed state={online} pollSeconds={60} area={thailand} />)
+    expect(screen.queryByText(/piura-demo/)).not.toBeInTheDocument()
+    expect(screen.getByText(/tailandia-01 · issued 15 Nov 2026, 15:17 UTC/)).toBeInTheDocument()
+    expect(screen.getByText('Real NISAR data')).toBeInTheDocument()
+    expect(screen.getByText(/verified in this browser/)).toBeInTheDocument()
+    expect(screen.getByText(/No newer event on the network for this area yet/)).toBeInTheDocument()
+  })
+
+  it('sin conexión lo dice, aclara que el mapa sigue y conserva el registro del área', () => {
     render(
       <LiveFeed
         state={{ status: 'offline', events: [], lastChecked: null, error: 'x' }}
         pollSeconds={60}
+        area={thailand}
       />,
     )
     expect(screen.getByRole('status')).toHaveTextContent('Offline')
     expect(screen.getByText(/The map still shows the verified data/)).toBeInTheDocument()
+    expect(screen.getByText(/tailandia-01 · issued/)).toBeInTheDocument()
   })
 })
 
