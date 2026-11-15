@@ -1,0 +1,1102 @@
+/* Ocean twilight presentation only. Scientific raster/legend colors are intentionally unchanged. */
+:root {
+  --color-navy: #214b7d;
+  --color-sky: #497fce;
+  --color-turquoise: #76cfdf;
+  --color-cream: #fff8ea;
+  --color-coral: #e97873;
+  --color-text: #23425a;
+  --color-muted: #52677a;
+  --color-border: #d5e5e8;
+  --color-surface: #f8f6f0;
+  --color-success: #2b958a;
+  --app-background: #14213c;
+  --app-gradient: linear-gradient(
+    135deg,
+    #10233f 0%,
+    #252a52 60%,
+    #443757 100%
+  );
+  --panel-background: rgba(24, 39, 67, 0.94);
+  --floating-background: rgba(29, 44, 73, 0.93);
+  --surface-raised: #263b5b;
+  --surface-soft: rgba(118, 207, 223, 0.08);
+  --text-primary: #eef5ff;
+  --text-secondary: #ceddec;
+  --text-muted: #afc3d7;
+  --ui-border: rgba(213, 229, 232, 0.24);
+  --border-strong: rgba(118, 207, 223, 0.6);
+  --active-color: var(--color-turquoise);
+  --on-active: #142b46;
+  --selected-surface: rgba(233, 120, 115, 0.18);
+  --selected-outline: #e97873;
+  --selected-halo: #fff8ea;
+  --hover-surface: rgba(118, 207, 223, 0.13);
+  --on-accent: #182b46;
+  --warning-surface: #fff0d0;
+  --warning-text: #54391c;
+  --focus-ring: var(--color-turquoise);
+  --map-background: #16243e;
+  --shadow-panel:
+    0 12px 32px rgba(6, 15, 38, 0.24), inset 0 1px rgba(255, 255, 255, 0.05);
+  --radius-panel: 14px;
+  --radius-control: 8px;
+  --panel: var(--panel-background);
+  --border: var(--ui-border);
+  --muted: var(--text-muted);
+  --cream: var(--color-cream);
+  --teal: var(--color-turquoise);
+  color-scheme: dark;
+}
+.app-shell {
+  background: var(--app-gradient);
+  color: var(--text-primary);
+}
+.app-header {
+  background: var(--color-navy);
+  border-color: var(--ui-border);
+  box-shadow: 0 3px 18px rgba(10, 23, 51, 0.2);
+}
+.brand,
+.brand strong {
+  color: white;
+}
+.brand strong span,
+.panel-heading svg,
+.observation-icon,
+.wonb-sections svg {
+  color: var(--color-turquoise);
+}
+.header-divider,
+.map-tools > span,
+.study-coordinates,
+.detail-section,
+.verification,
+.legend-key {
+  border-color: var(--ui-border);
+}
+.header-divider,
+.map-tools > span {
+  background: var(--ui-border);
+}
+.subtitle,
+.region,
+.header-actions button {
+  color: var(--text-secondary);
+}
+.data-badge {
+  background: var(--color-cream);
+  color: var(--color-navy);
+  border-color: var(--color-turquoise);
+  font-size: 10px;
+  letter-spacing: 0.6px;
+}
+.status-dot {
+  background: var(--color-turquoise);
+}
+.navigation {
+  background: linear-gradient(180deg, var(--color-navy), var(--app-background));
+  border-color: var(--ui-border);
+}
+.nav-item {
+  color: var(--text-secondary);
+  border-radius: var(--radius-control);
+  font-size: 10px;
+}
+.nav-item.active,
+.nav-item[aria-pressed='true'] {
+  background: var(--color-turquoise);
+  color: var(--on-active);
+  box-shadow: 0 3px 12px rgba(118, 207, 223, 0.12);
+}
+.nav-item:not(.active):hover {
+  color: var(--color-turquoise);
+  background: var(--hover-surface);
+}
+.panel,
+.study-info,
+.map-tools,
+.observation-bar,
+.map-legend,
+.evidence-card,
+.evidence-details,
+.selection-chip,
+.map-loading,
+.map-fallback,
+.comparison-label {
+  background: var(--floating-background);
+  border-color: var(--ui-border);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+  color: var(--text-primary);
+}
+.panel {
+  backdrop-filter: blur(16px);
+}
+.map-explorer {
+  background: var(--app-gradient);
+  --overlay-left: 300px;
+}
+.panel-heading {
+  padding: 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.layer-body {
+  padding: 0 16px 16px;
+}
+.layer-body > .section-caption,
+.section-caption,
+.count,
+.muted,
+.list-note,
+.fixture-note {
+  color: var(--text-muted);
+}
+.layer-intro,
+.priority-body > p,
+.layer-panel .layer-row small,
+.change-opacity p,
+.opacity-row,
+.layer-row small,
+.map-legend p,
+.legend-values,
+.legend-key,
+.evidence-top,
+.evidence-top p,
+.detail-section > p,
+.explanation p,
+.provenance-mini,
+.wonb-sections p,
+.wonb-sections span,
+.verification p,
+.verification > small,
+.study-info > span:not(.section-caption),
+.comparison-label span {
+  color: var(--text-secondary);
+}
+.layer-panel .layer-row > span:first-child {
+  font-size: 12px;
+}
+.layer-panel .layer-row small,
+.layer-intro,
+.change-opacity p,
+.layer-panel .fixture-note {
+  font-size: 11px;
+}
+.layer-panel .fixture-note,
+.opacity-row,
+.evidence-top,
+.metrics > div,
+.detail-section,
+.verification,
+.legend-key {
+  border-color: var(--ui-border);
+}
+.switch {
+  width: 30px;
+  height: 17px;
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+}
+.switch:after {
+  width: 11px;
+  height: 11px;
+  background: var(--color-border);
+}
+.layer-row input:checked + .switch {
+  background: var(--color-turquoise);
+  border-color: var(--color-turquoise);
+}
+.layer-row input:checked + .switch:after {
+  background: var(--color-navy);
+  transform: translateX(13px);
+}
+.layer-row input:focus-visible + .switch {
+  outline-color: var(--focus-ring);
+}
+input[type='range'] {
+  accent-color: var(--color-turquoise);
+}
+.comparison-help {
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  border-color: var(--ui-border);
+  border-radius: var(--radius-control);
+  font-size: 11px;
+}
+.count {
+  background: var(--surface-soft);
+  border-color: var(--ui-border);
+}
+.priority-row {
+  background: var(--surface-soft);
+  border-color: var(--ui-border);
+  border-radius: 9px;
+  padding: 11px;
+}
+.priority-row.selected {
+  background: var(--selected-surface);
+  border-color: var(--color-coral);
+  box-shadow: inset 3px 0 var(--color-coral);
+}
+.priority-row strong {
+  font-size: 12px;
+}
+.priority-row small,
+.list-note {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+.priority-arrow {
+  color: var(--color-coral);
+}
+.rank,
+.rank-2,
+.rank-3,
+.rank-badge {
+  color: var(--on-accent);
+  background: var(--color-coral);
+  border-color: var(--color-coral);
+}
+.map-mode button,
+.back-map {
+  background: var(--panel-background);
+  border-color: var(--border-strong);
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+}
+.map-mode button.active {
+  background: var(--color-turquoise);
+  color: var(--on-active);
+  border-color: var(--color-turquoise);
+}
+.map-mode button:hover {
+  border-color: var(--color-coral);
+}
+.study-tag {
+  color: var(--color-navy);
+  background: var(--color-cream);
+  border-radius: 20px;
+  font-size: 10px;
+}
+.study-tag .status-dot {
+  background: var(--color-success);
+}
+.study-info {
+  position: static;
+  inset: auto;
+  width: 100%;
+  display: flex;
+  padding: 16px;
+}
+.study-info strong {
+  font-size: 14px;
+}
+.study-coordinates {
+  border-color: var(--ui-border);
+}
+.left-panels,
+.evidence-card,
+.evidence-details,
+.methodology-page {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-sky) transparent;
+}
+.left-panels {
+  gap: 12px;
+  z-index: 5;
+}
+.map-status-stack {
+  position: absolute;
+  top: 76px;
+  left: var(--overlay-left);
+  width: min(320px, calc(100% - 334px));
+  display: grid;
+  gap: 10px;
+  align-items: start;
+  justify-items: start;
+  z-index: 4;
+  pointer-events: none;
+}
+.location-label {
+  position: static;
+  inset: auto;
+  width: fit-content;
+  max-width: 100%;
+  display: inline-flex;
+  background: var(--color-cream);
+  color: var(--color-navy);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 7px 11px;
+  text-shadow: none;
+  gap: 6px;
+  box-shadow: var(--shadow-panel);
+}
+.location-label > span {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+.location-label small {
+  font-size: 9px;
+  letter-spacing: 0.7px;
+  margin: 0 0 1px 3px;
+}
+.connection-note {
+  position: static;
+  inset: auto;
+  width: 100%;
+  min-width: 0;
+  pointer-events: auto;
+}
+.data-status {
+  color: var(--text-primary);
+  background: var(--panel-background);
+  border-color: var(--ui-border);
+  border-radius: 10px;
+}
+.data-status > svg {
+  color: var(--color-coral);
+}
+.data-status p {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.data-status strong {
+  font-size: 12px;
+}
+.connection-note .data-status,
+.state-verification,
+.state-quality {
+  background: var(--warning-surface);
+  color: var(--warning-text);
+  border-color: var(--color-coral);
+}
+.connection-note .data-status p,
+.state-verification p,
+.state-quality p {
+  color: var(--warning-text);
+}
+.connection-note .data-status > svg {
+  color: var(--color-navy);
+}
+.has-selection .map-topline {
+  right: 368px;
+}
+.has-selection .map-status-stack {
+  width: min(320px, calc(100% - 668px));
+}
+.evidence-card {
+  bottom: 208px;
+  max-height: none;
+  border-top: 2px solid var(--color-coral);
+  padding: 0 20px 20px;
+}
+.evidence-identity {
+  gap: 12px;
+}
+.evidence-identity h2 {
+  font-size: 23px;
+  color: var(--text-primary);
+}
+.evidence-identity .section-caption {
+  font-size: 9px;
+  letter-spacing: 0.7px;
+}
+.rank-badge {
+  font-size: 10px;
+  white-space: nowrap;
+  border-radius: 6px;
+}
+.quality-tag {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  font-size: 10px;
+}
+.fixture-tag,
+.quality-tag.low {
+  background: var(--warning-surface);
+  color: var(--warning-text);
+  border-color: var(--color-coral);
+  font-size: 10px;
+}
+.quality-tag.low .status-dot {
+  background: var(--color-coral);
+}
+.radar-preview {
+  border-color: var(--ui-border);
+  border-radius: 9px;
+}
+.radar-preview > span,
+.radar-preview small {
+  color: var(--color-cream);
+}
+.metrics dt {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.metrics dd {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.metrics dd.text-metric {
+  font-size: 12px;
+}
+.metrics dd small {
+  color: var(--text-secondary);
+}
+.primary-button {
+  background: var(--color-coral);
+  color: var(--on-accent);
+  border-color: var(--color-coral);
+  border-radius: 9px;
+  font-size: 12px;
+  box-shadow: 0 3px 12px rgba(233, 120, 115, 0.12);
+}
+.primary-button:hover {
+  background: color-mix(in srgb, var(--color-coral) 80%, white);
+  color: var(--on-accent);
+  border-color: var(--color-cream);
+}
+.expanded-metrics > div {
+  background: var(--surface-soft);
+  border-color: var(--ui-border);
+  border-radius: 8px;
+}
+.expanded-metrics dd {
+  font-size: 22px;
+}
+.verification-status {
+  color: var(--text-secondary);
+  border-color: var(--ui-border);
+}
+.verify-unavailable,
+.verify-failed,
+.verify-expired {
+  color: var(--color-cream);
+  border-color: var(--color-coral);
+}
+.verify-verified {
+  color: var(--color-turquoise);
+}
+.provenance a,
+.method-grid a,
+.text-button {
+  color: var(--color-turquoise);
+}
+.observation-bar {
+  min-width: 0;
+  padding: 12px 16px;
+  bottom: 24px;
+  gap: 12px;
+}
+.observation-bar strong {
+  white-space: normal;
+  font-size: 12px;
+}
+.observation-bar > div:first-child span:not(.observation-icon),
+.observation-dates small,
+.pair-status {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+.observation-dates > span {
+  color: var(--text-primary);
+  font-size: 11px;
+}
+.date-line {
+  background: var(--color-sky);
+}
+.date-line i {
+  background: var(--color-turquoise);
+}
+.map-legend {
+  bottom: 24px;
+  max-height: 170px;
+  overflow: auto;
+  z-index: 4;
+}
+.legend-heading {
+  color: var(--text-primary);
+  font-size: 12px;
+}
+.change-legend {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.map-legend p,
+.legend-key {
+  font-size: 10px;
+}
+.map-tools {
+  z-index: 4;
+  padding: 4px;
+}
+.map-tools button {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+}
+.north {
+  color: var(--color-cream);
+}
+.cell-marker {
+  color: var(--color-navy);
+  background: var(--color-cream);
+  border-color: var(--color-border);
+  border-radius: 7px;
+}
+.cell-marker:hover {
+  color: var(--on-accent);
+  background: var(--color-coral);
+  border-color: var(--color-cream);
+}
+.cell-marker:before {
+  background: var(--color-cream);
+}
+.comparison-label {
+  top: auto;
+  bottom: 158px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  gap: 1px;
+  z-index: 4;
+}
+.comparison-label strong {
+  font-size: 11px;
+}
+.comparison-label span {
+  font-size: 10px;
+}
+.comparison-label.before {
+  left: calc(50% - 142px);
+}
+.comparison-label.after {
+  left: calc(50% + 20px);
+}
+.compare-divider {
+  width: 20px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    90deg,
+    transparent 9px,
+    var(--color-cream) 9px,
+    var(--color-cream) 11px,
+    transparent 11px
+  );
+  pointer-events: auto;
+  touch-action: none;
+  cursor: ew-resize;
+  box-shadow: none;
+  z-index: 3;
+}
+.compare-divider > span {
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 34px;
+  background: var(--color-cream);
+  color: var(--color-navy);
+  border: 2px solid var(--color-turquoise);
+}
+.compare-divider:focus-visible {
+  outline: 2px solid var(--color-turquoise);
+  outline-offset: 2px;
+}
+.compare-slider {
+  pointer-events: none;
+}
+.compare-slider::-webkit-slider-thumb {
+  pointer-events: auto;
+}
+.selection-chip {
+  background: var(--panel-background);
+  border-color: var(--color-coral);
+  color: var(--text-primary);
+}
+.maplibregl-ctrl-scale {
+  background: var(--panel-background);
+  color: var(--color-cream);
+  border-color: var(--color-turquoise);
+}
+.maplibregl-ctrl-attrib {
+  background: var(--color-cream) !important;
+  color: var(--color-text);
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--color-text);
+}
+.app-footer {
+  background: var(--app-background);
+  color: var(--text-secondary);
+  border-color: var(--ui-border);
+}
+.methodology-page {
+  background: var(--app-gradient);
+  scrollbar-color: var(--color-sky) var(--app-background);
+}
+.methodology-intro h1,
+.method-grid h2 {
+  color: var(--text-primary);
+}
+.methodology-intro h1 > span {
+  color: var(--color-turquoise);
+}
+.methodology-intro p,
+.method-grid p,
+.limitations p {
+  color: var(--text-secondary);
+}
+.method-grid article,
+.method-grid article:not(:nth-child(3n + 1)) {
+  border-color: var(--ui-border);
+}
+.method-grid article > svg {
+  color: var(--color-turquoise);
+}
+.methodology-page > .data-status,
+.limitations {
+  background: var(--panel-background);
+  border-color: var(--ui-border);
+}
+.limitations h2,
+.limitations svg {
+  color: var(--color-coral);
+}
+button {
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+[role='slider']:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+@media (max-width: 1200px) and (min-width: 1001px) {
+  .map-explorer {
+    --overlay-left: 260px;
+  }
+  .left-panels {
+    width: 220px;
+    left: 18px;
+  }
+  .map-topline {
+    left: 260px;
+  }
+  .map-status-stack {
+    width: min(300px, calc(100% - 278px));
+  }
+  .has-selection .map-topline {
+    right: 330px;
+  }
+  .has-selection .map-status-stack {
+    width: min(300px, calc(100% - 590px));
+  }
+  .evidence-card {
+    width: 290px;
+    right: 18px;
+  }
+  .observation-bar {
+    left: 18px;
+    right: 250px;
+  }
+  .map-legend {
+    right: 18px;
+    width: 214px;
+  }
+  .study-tag {
+    white-space: normal;
+    font-size: 9px;
+  }
+}
+@media (max-width: 1000px) {
+  .app-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .app-header {
+    position: sticky;
+    top: 0;
+    min-height: 66px;
+    height: auto;
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .subtitle,
+  .header-divider {
+    display: none;
+  }
+  .header-actions {
+    gap: 10px;
+  }
+  .region {
+    font-size: 11px;
+  }
+  .workspace {
+    align-items: flex-start;
+  }
+  .navigation {
+    position: sticky;
+    top: 66px;
+    height: calc(100dvh - 66px);
+    min-height: 360px;
+    width: 60px;
+  }
+  .main-workspace {
+    overflow: visible;
+  }
+  .map-explorer {
+    --mobile-map-height: max(420px, 58dvh);
+    position: relative;
+    inset: auto;
+    padding-top: calc(var(--mobile-map-height) + 12px);
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+  }
+  .map-explorer.is-hidden {
+    display: none;
+  }
+  .map-explorer > .map-canvas,
+  .comparison-map {
+    bottom: auto;
+    top: 0;
+    height: var(--mobile-map-height);
+  }
+  .comparison-map > .map-canvas {
+    height: 100%;
+  }
+  .map-topline,
+  .has-selection .map-topline {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+  }
+  .map-mode button {
+    font-size: 11px;
+    gap: 6px;
+    padding: 8px;
+  }
+  .study-tag {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    padding: 7px 9px;
+    white-space: normal;
+  }
+  .map-status-stack,
+  .has-selection .map-status-stack {
+    top: 68px;
+    left: 12px;
+    width: min(310px, calc(100% - 78px));
+  }
+  .connection-note {
+    width: 100%;
+  }
+  .connection-note .data-status p {
+    font-size: 11px;
+  }
+  .connection-note .data-status strong {
+    font-size: 12px;
+  }
+  .location-label {
+    position: static;
+    inset: auto;
+  }
+  .left-panels {
+    position: relative;
+    inset: auto;
+    width: auto;
+    margin: 0 12px 12px;
+    max-height: none;
+    overflow: visible;
+    z-index: 1;
+  }
+  .panel-heading {
+    padding: 14px 16px;
+    font-size: 13px;
+  }
+  .panel-heading svg {
+    width: 15px;
+  }
+  .layer-body {
+    padding: 0 16px 16px;
+  }
+  .layer-panel .layer-row > span:first-child {
+    font-size: 12px;
+  }
+  .layer-panel .layer-row small,
+  .layer-intro,
+  .layer-panel .fixture-note {
+    font-size: 11px;
+  }
+  .switch {
+    width: 30px;
+    height: 17px;
+  }
+  .switch:after {
+    width: 11px;
+    height: 11px;
+  }
+  .layer-row input:checked + .switch:after {
+    transform: translateX(13px);
+  }
+  .priority-row strong {
+    font-size: 13px;
+  }
+  .priority-row small,
+  .list-note {
+    font-size: 11px;
+  }
+  .study-info {
+    position: static;
+    display: flex;
+    width: 100%;
+    margin: 0;
+  }
+  .observation-bar,
+  .map-legend {
+    position: relative;
+    inset: auto;
+    width: auto;
+    min-width: 0;
+    margin: 0 12px 12px;
+    max-height: none;
+    flex-wrap: wrap;
+  }
+  .map-legend p,
+  .legend-key {
+    display: flex;
+    font-size: 11px;
+  }
+  .map-legend .change-legend {
+    font-size: 11px;
+    flex-wrap: wrap;
+  }
+  .observation-dates {
+    flex-wrap: wrap;
+  }
+  .observation-dates small {
+    display: block;
+  }
+  .evidence-card,
+  .evidence-details {
+    position: relative;
+    inset: auto;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0 12px 16px;
+    padding: 0 20px 20px;
+    z-index: 2;
+  }
+  .evidence-card .metrics dt {
+    font-size: 12px;
+  }
+  .evidence-card .metrics dd {
+    font-size: 15px;
+  }
+  .evidence-identity .section-caption {
+    font-size: 10px;
+  }
+  .evidence-top {
+    padding: 16px 0;
+  }
+  .comparison-label {
+    top: calc(var(--mobile-map-height) - 88px);
+    bottom: auto;
+    max-width: 42%;
+    padding: 6px 10px;
+  }
+  .comparison-label.before {
+    left: 12px;
+  }
+  .comparison-label.after {
+    left: auto;
+    right: 12px;
+  }
+  .comparison-label strong {
+    font-size: 12px;
+  }
+  .comparison-label span {
+    font-size: 10px;
+  }
+  .compare-divider {
+    height: var(--mobile-map-height);
+    bottom: auto;
+  }
+  .compare-slider {
+    top: calc(var(--mobile-map-height) / 2 - 26px);
+  }
+  .map-tools {
+    top: 132px;
+    right: 12px;
+    bottom: auto;
+  }
+  .north {
+    top: 78px;
+    right: 23px;
+  }
+  .selection-chip {
+    top: calc(var(--mobile-map-height) - 38px);
+    bottom: auto;
+    font-size: 11px;
+    max-width: calc(100% - 24px);
+  }
+  .map-loading {
+    top: calc(var(--mobile-map-height) / 2);
+  }
+  .map-fallback {
+    top: 230px;
+    left: 12px;
+    right: 12px;
+  }
+  .empty-cell {
+    top: 230px;
+  }
+  .methodology-page {
+    position: relative;
+    inset: auto;
+    min-height: calc(100dvh - 100px);
+    padding: 24px;
+  }
+  .method-grid {
+    grid-template-columns: 1fr;
+  }
+  .method-grid article,
+  .method-grid article:nth-child(even) {
+    padding: 22px 0;
+    border-left: 0;
+    border-color: var(--ui-border);
+  }
+  .method-grid p {
+    font-size: 13px;
+  }
+  .methodology-intro h1 {
+    font-size: 34px;
+  }
+  .back-map {
+    position: relative;
+    inset: auto;
+    margin: 0 12px 12px;
+  }
+  .app-footer {
+    height: auto;
+    min-height: 30px;
+    padding: 9px 16px;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 10px;
+  }
+  .app-footer > span:last-child {
+    display: inline;
+  }
+}
+@media (max-width: 600px) {
+  .app-header {
+    padding: 10px;
+  }
+  .brand strong {
+    font-size: 16px;
+  }
+  .header-actions {
+    gap: 6px;
+  }
+  .data-badge {
+    font-size: 9px;
+    padding: 5px 8px;
+  }
+  .region {
+    display: none;
+  }
+  .navigation {
+    width: 48px;
+    top: 56px;
+    height: calc(100dvh - 56px);
+  }
+  .nav-item {
+    width: 42px;
+    font-size: 9px;
+  }
+  .study-tag {
+    max-width: calc(100% - 46px);
+  }
+  .map-mode button {
+    font-size: 0;
+    gap: 0;
+    padding: 9px;
+  }
+  .map-mode button svg {
+    width: 17px;
+    height: 17px;
+  }
+  .location-label > span {
+    font-size: 12px;
+  }
+  .evidence-identity {
+    flex-wrap: wrap;
+  }
+  .expanded-metrics {
+    grid-template-columns: 1fr;
+  }
+  .observation-bar {
+    gap: 12px;
+  }
+  .radar-preview {
+    min-width: 0;
+  }
+  .metrics dd.text-metric {
+    max-width: 52%;
+    overflow-wrap: anywhere;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Keep navigation controls clear of evidence/legend cards at every breakpoint. */
+.map-tools {
+  bottom: 210px;
+}
+.has-selection .map-tools {
+  right: 368px;
+}
+@media (max-width: 1200px) and (min-width: 1001px) {
+  .has-selection .map-tools {
+    right: 330px;
+  }
+}
+@media (max-width: 1000px) {
+  .has-selection .map-tools {
+    top: 132px;
+    right: 12px;
+    bottom: auto;
+  }
+  .comparison-label.before,
+  .comparison-label.after {
+    top: calc(var(--mobile-map-height) - 88px);
+    bottom: auto;
+  }
+}
+@media (max-width: 600px) {
+  .navigation {
+    top: 66px;
+    height: calc(100dvh - 66px);
+  }
+}

@@ -1,0 +1,275 @@
+/* Floating navigation is positioned, never a flex/grid column beside the canvas. */
+.workspace {
+  position: relative;
+}
+.main-workspace {
+  width: 100%;
+}
+.floating-navigation {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 30;
+}
+.hamburger-trigger {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--color-cream);
+  background: var(--color-navy);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-panel);
+}
+.hamburger-trigger:hover,
+.hamburger-trigger[aria-expanded='true'] {
+  background: var(--color-turquoise);
+  color: var(--on-active);
+}
+.floating-menu {
+  position: absolute;
+  left: 54px;
+  top: 0;
+  width: 238px;
+  padding: 15px;
+  background: var(--floating-background);
+  border: 1px solid var(--ui-border);
+  backdrop-filter: blur(18px);
+  border-radius: 16px;
+  box-shadow: 0 14px 36px #06162b55;
+  animation: menu-appear 140ms ease-out;
+}
+.floating-menu-caption {
+  display: block;
+  color: var(--text-muted);
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+.navigation-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.navigation-card {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  font-size: 12px;
+  border: 1px solid var(--ui-border);
+}
+.navigation-card svg {
+  color: var(--color-turquoise);
+}
+.navigation-card:hover {
+  background: var(--hover-surface);
+  border-color: var(--color-turquoise);
+  transform: translateY(-1px);
+}
+.navigation-card[aria-current='page'] {
+  background: var(--selected-surface);
+  border-color: var(--color-coral);
+}
+.navigation-card[aria-current='page'] svg {
+  color: var(--color-coral);
+}
+.priority-toggle {
+  position: absolute;
+  top: 16px;
+  left: 68px;
+  height: 42px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  z-index: 8;
+  background: var(--panel-background);
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  color: var(--color-cream);
+  font-size: 12px;
+}
+.priority-toggle[aria-expanded='true'] {
+  color: var(--on-accent);
+  background: var(--color-coral);
+  border-color: var(--color-coral);
+}
+.map-topline {
+  left: 188px;
+  top: 20px;
+}
+.left-panels.floating-map-popovers {
+  position: absolute;
+  inset: 68px auto auto 16px;
+  width: 284px;
+  max-height: calc(100% - 200px);
+  margin: 0;
+  overflow-y: auto;
+  z-index: 20;
+  animation: menu-appear 140ms ease-out;
+}
+.floating-map-popovers .study-info {
+  display: block;
+  font-size: 11px;
+}
+.floating-map-popovers .study-info summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.floating-map-popovers .study-info[open] > *:not(summary) {
+  display: block;
+  margin-top: 7px;
+}
+.map-status-stack,
+.has-selection .map-status-stack {
+  left: auto;
+  right: 24px;
+  top: 76px;
+  width: min(300px, calc(100% - 48px));
+}
+.has-selection .map-status-stack {
+  right: 368px;
+  width: min(300px, calc(100% - 410px));
+}
+.observation-bar {
+  left: 16px;
+}
+.app-footer {
+  padding-left: 16px;
+}
+.evidence-empty {
+  position: absolute;
+  right: 24px;
+  top: 24px;
+  width: min(320px, calc(100% - 48px));
+  padding: 24px;
+  z-index: 6;
+  display: grid;
+  gap: 14px;
+}
+.evidence-empty > svg {
+  color: var(--color-turquoise);
+}
+.evidence-empty h2 {
+  font-size: 22px;
+}
+.evidence-empty p {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.navigation-card,
+.hamburger-trigger {
+  transition:
+    background 150ms,
+    border-color 150ms,
+    transform 150ms;
+}
+@keyframes menu-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 1200px) and (min-width: 1001px) {
+  .map-explorer {
+    --overlay-left: 16px;
+  }
+  .map-topline {
+    left: 188px;
+  }
+  .has-selection .map-status-stack {
+    right: 330px;
+    width: min(280px, calc(100% - 370px));
+  }
+}
+@media (max-width: 1000px) {
+  .floating-navigation {
+    top: 12px;
+    left: 12px;
+  }
+  .priority-toggle {
+    top: 12px;
+    left: 64px;
+  }
+  .map-topline,
+  .has-selection .map-topline {
+    top: 15px;
+    left: 176px;
+    right: 12px;
+  }
+  .map-status-stack,
+  .has-selection .map-status-stack {
+    top: 76px;
+    left: 12px;
+    right: auto;
+    width: min(300px, calc(100% - 78px));
+  }
+  .left-panels.floating-map-popovers {
+    position: absolute;
+    top: 64px;
+    left: 12px;
+    width: min(284px, calc(100% - 24px));
+    max-height: min(530px, calc(var(--mobile-map-height) - 82px));
+    margin: 0;
+    overflow-y: auto;
+    z-index: 20;
+  }
+  .map-explorer {
+    padding-top: calc(var(--mobile-map-height) + 12px);
+  }
+  .observation-bar {
+    left: auto;
+  }
+  .evidence-empty {
+    position: relative;
+    inset: auto;
+    width: auto;
+    margin: 0 12px 16px;
+  }
+}
+@media (max-width: 600px) {
+  .floating-menu {
+    top: 52px;
+    left: 0;
+    width: min(248px, calc(100vw - 24px));
+  }
+  .navigation-card {
+    padding: 14px;
+    min-height: 86px;
+  }
+  .map-topline,
+  .has-selection .map-topline {
+    left: auto;
+    right: 12px;
+    top: 12px;
+  }
+  .map-topline .study-tag {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .floating-menu,
+  .floating-map-popovers,
+  .navigation-card,
+  .hamburger-trigger {
+    animation: none;
+    transition: none;
+  }
+}
+
+.detail-view .priority-toggle {
+  display: none;
+}
