@@ -303,6 +303,7 @@ export async function loadAndVerify(
   }
 
   // ── 3. Parsear archivos (solo después de verificar bytes) ──────────
+  const parseStart = perfStart === null ? null : performance.now();
   const manifestRaw = jsonOf<unknown>(await read("manifest.json", signal));
   const cellsRaw = jsonOf<unknown>(await read("cells.geojson", signal));
   const boundsRaw = jsonOf<unknown>(await read("overlays/bounds.json", signal));
@@ -319,7 +320,15 @@ export async function loadAndVerify(
     })),
   );
 
+  if (parseStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:parse-json`, {
+      start: parseStart,
+      end: performance.now(),
+    });
+  }
+
   // ── 4. Verificar bloques (hash + firma) ────────────────────────────
+  const blockVerifyStart = perfStart === null ? null : performance.now();
   const verdicts = verifyBlocks(blocks);
   if (!verdicts.ok) {
     throw new BundleContractError(
@@ -330,7 +339,15 @@ export async function loadAndVerify(
     );
   }
 
+  if (blockVerifyStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:wonb-hash-signatures`, {
+      start: blockVerifyStart,
+      end: performance.now(),
+    });
+  }
+
   // ── 5. Cadena de padres ────────────────────────────────────────────
+  const trustStart = perfStart === null ? null : performance.now();
   const chain = verifyChain(blocks);
   if (chain.length > 0) {
     throw new BundleContractError("cadena de bloques incompleta", chain);
@@ -354,6 +371,13 @@ export async function loadAndVerify(
   const asOf = new Date(index.generated_at);
   const expired = blocks.filter(({ block }) => isExpired(block, asOf));
   const ttlOk = expired.length === 0;
+
+  if (trustStart !== null) {
+    performance.measure(`wombat:bundle:${perfId}:chain-issuers-ttl`, {
+      start: trustStart,
+      end: performance.now(),
+    });
+  }
 
   const problems: string[] = [];
   if (!ttlOk) {
