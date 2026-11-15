@@ -9,7 +9,10 @@ import "./App.css";
 /** Vista activa. Sin react-router: una sola pantalla con dos modos. */
 type View = "mapa" | "metodologia";
 
-const CONFIG_URL = "/dashboard.config.json";
+// Rutas relativas a la base del despliegue. En GitHub Pages el sitio vive en
+// /wombat-dashboard/, así que una ruta absoluta como "/dashboard.config.json"
+// da 404. import.meta.env.BASE_URL vale "/" en dev y "./" en el build.
+const CONFIG_URL = `${import.meta.env.BASE_URL}dashboard.config.json`;
 
 const OVERLAY_LABELS: Record<OverlayKey, string> = {
   t1: "T1",
@@ -81,7 +84,7 @@ export default function App() {
     setLoading(true);
     setError(null);
 
-    const base = `/bundles/${selectedBundle.aoi}/${selectedBundle.version}`;
+    const base = `${import.meta.env.BASE_URL}bundles/${selectedBundle.aoi}/${selectedBundle.version}`;
     const issuers = selectedBundle.issuers.map((i) => ({ issuer: i.issuer, roles: i.roles }));
 
     loadAndVerify(base, issuers, undefined, controller.signal)
