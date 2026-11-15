@@ -491,7 +491,7 @@ export function MapExplorer({
   }, [ready, layers, selected, opacity, compare])
   const pairNote =
     bundle.mode === 'simulated'
-      ? 'Imágenes simuladas de prueba'
+      ? 'Imágenes de demostración'
       : 'Imágenes reales del satélite NISAR'
   return (
     <section

@@ -66,7 +66,6 @@ describe('parseLatestEvent', () => {
       type: 'change',
       simulated: true,
       gatewayVerified: true,
-      message: 'DEMO SIMULADA — no es alerta científica',
     })
   })
 
@@ -195,7 +194,8 @@ describe('LiveFeed', () => {
     render(<LiveFeed state={online} pollSeconds={60} />)
     expect(screen.getByText('Cambio observado')).toBeInTheDocument()
     expect(screen.getByText('Simulado')).toBeInTheDocument()
-    expect(screen.getByText(/DEMO SIMULADA/)).toBeInTheDocument()
+    // El aviso largo del productor no se muestra: basta la insignia.
+    expect(screen.queryByText(/DEMO SIMULADA/)).not.toBeInTheDocument()
     expect(screen.getByText(/Este navegador no verificó su firma/)).toBeInTheDocument()
     expect(screen.getByText(/Se actualiza cada 60 s/)).toBeInTheDocument()
     // Los nanosegundos de issued_at no rompen la fecha.
