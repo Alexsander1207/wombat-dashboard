@@ -10,6 +10,7 @@ import { readFile, readdir, mkdtemp, rm, writeFile, stat, mkdir, copyFile } from
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadAndVerify, releaseBundle } from "../src/bundle/contract.ts";
+import { verifyFileHashes } from "../src/verify/bundle.ts";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 
@@ -285,5 +286,57 @@ describe("(f) estados", () => {
   it("releaseBundle no lanza con bundle válido", async () => {
     const bundle = await loadAndVerify(BUNDLE_DIR, TRUSTED_ISSUERS, makeReadBytes(BUNDLE_DIR));
     expect(() => releaseBundle(bundle)).not.toThrow();
+  });
+});
+
+
+describe("(g) rendimiento de carga", () => {
+  it("descarga cada recurso del bundle una sola vez y reutiliza los bytes verificados", async () => {
+    const reads = new Map<string, number>();
+    const readBytes = async (path: string): Promise<Uint8Array> => {
+      reads.set(path, (reads.get(path) ?? 0) + 1);
+      return new Uint8Array(await readFile(join(BUNDLE_DIR, path)));
+    };
+
+    const bundle = await loadAndVerify(BUNDLE_DIR, TRUSTED_ISSUERS, readBytes);
+
+    expect(bundle.verification.filesOk).toBe(true);
+    expect(reads.get("index.json")).toBe(1);
+    expect([...reads.values()].every((count) => count === 1)).toBe(true);
+    expect(reads.size).toBe(bundle.verification.filesChecked + 1);
+  });
+
+  it("verifica archivos con concurrencia acotada y conserva el orden", async () => {
+    const files = Array.from({ length: 30 }, (_, i) => ({
+      path: `file-${i}.bin`,
+      sha256: "no-coincide",
+    }));
+    let active = 0;
+    let maxActive = 0;
+    const report = await verifyFileHashes(
+      {
+        contract_version: "1.0.0",
+        bundle_version: "test",
+        aoi_id: "test",
+        data_origin: "test",
+        generated_at: "2026-01-01T00:00:00Z",
+        core_commit: "test",
+        files,
+      },
+      async () => {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+        return new Uint8Array([1, 2, 3]);
+      },
+      12,
+    );
+
+    expect(report.checks).toHaveLength(30);
+    expect(report.checks.map((check) => check.path)).toEqual(files.map((file) => file.path));
+    expect(maxActive).toBe(12);
+    expect(report.ok).toBe(false);
+    expect(report.failures).toHaveLength(30);
   });
 });
