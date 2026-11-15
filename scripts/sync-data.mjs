@@ -1,30 +1,30 @@
 #!/usr/bin/env node
 /**
- * Copia una versión FIJA del bundle publicado a public/data/, verificándolo
- * antes de escribir un solo byte.
+ * Sincroniza un bundle publicado e inmutable a public/bundles/<aoi>/<vN>/.
  *
- * El orden importa y es deliberado: primero se verifica en origen, y solo si
- * todo cuadra se copia. Copiar y después verificar dejaría un bundle corrupto
- * servido por el dev server durante el rato que tarde la comprobación, y un
- * dashboard que carga datos manipulados aunque luego se queje.
+ * Lee la lista de bundles y los emisores de confianza de dashboard.config.json.
+ * Nunca confía en el trusted-issuers.json que viene dentro del bundle.
  *
- * La versión está fijada en el código (AOI_ID / BUNDLE_VERSION), no se descubre
- * sola. R28 dice que un bundle publicado es inmutable para una versión dada, así
- * que "la última" no es una referencia estable: si mañana sale v1, este
- * dashboard sigue mostrando v0 hasta que alguien lo cambie a mano y revise el
- * diff.
+ * Uso:
+ *   node scripts/sync-data.mjs --aoi <id> --version <vN>
+ *   node scripts/sync-data.mjs --aoi <id> --version <vN> --source <url|ruta>
+ *   node scripts/sync-data.mjs --aoi <id> --version <vN> --issuer <pubkey>
  *
- *   node scripts/sync-data.mjs
- *   node scripts/sync-data.mjs --from ../Wombat-core/contracts/v1/fixtures/bundle
+ * Paso 1 (obligatorio): verifica sha256 de cada archivo contra index.json.
+ * Paso 2 (obligatorio): verifica firma Ed25519 de cada bloque WONB contra
+ *   los emisores pinneados en dashboard.config.json.
+ * Paso 3 (obligatorio): puerta de versión — contract_version major debe ser 1.
+ * Paso 4 (solo si todo pasa): copia a public/bundles/<aoi>/<vN>/.
  */
+
 import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  verifyFileHashes,
   verifyBlocks,
   verifyChain,
-  verifyFileHashes,
   verifyIssuers,
   isExpired,
 } from "../src/verify/bundle.ts";
@@ -32,20 +32,88 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 
-/** La versión fija que este dashboard sirve. Cambiarla es un cambio revisable. */
-const AOI_ID = "piura-demo";
-const BUNDLE_VERSION = "v0";
+const CONFIG_PATH = join(ROOT, "dashboard.config.json");
 
-const DEFAULT_SOURCE = resolve(ROOT, "../Wombat-core/contracts/v1/fixtures/bundle");
-const DESTINATION = join(ROOT, "public", "data", AOI_ID, BUNDLE_VERSION);
-
-function sourceRoot() {
-  const flag = process.argv.indexOf("--from");
-  const base = flag === -1 ? DEFAULT_SOURCE : resolve(process.argv[flag + 1]);
-  return join(base, AOI_ID, BUNDLE_VERSION);
+function parseArgs() {
+  const args = {};
+  for (let i = 2; i < process.argv.length; i++) {
+    const arg = process.argv[i];
+    if (arg.startsWith("--")) {
+      const key = arg.slice(2);
+      const next = process.argv[i + 1];
+      if (next && !next.startsWith("--")) {
+        args[key] = next;
+        i++;
+      } else {
+        args[key] = true;
+      }
+    }
+  }
+  return args;
 }
 
-/** Recorre el bundle entero, no solo lo que index.json dice que hay. */
+function fail(message, detail) {
+  console.error(`\n  ERROR  ${message}`);
+  if (detail) console.error(detail);
+  console.error("\n  No se copió nada.\n");
+  process.exit(1);
+}
+
+async function readConfig() {
+  let config;
+  try {
+    config = JSON.parse(await readFile(CONFIG_PATH, "utf8"));
+  } catch (cause) {
+    fail(
+      `no se pudo leer ${relative(ROOT, CONFIG_PATH)}`,
+      `    ${cause?.message ?? cause}`,
+    );
+  }
+  if (!config || !Array.isArray(config.bundles) || config.bundles.length === 0) {
+    fail(
+      `dashboard.config.json no tiene una lista "bundles" válida`,
+      `    revisa ${relative(ROOT, CONFIG_PATH)}`,
+    );
+  }
+  return config;
+}
+
+function findBundleEntry(config, aoi, version) {
+  const entry = config.bundles.find((b) => b.aoi === aoi && b.version === version);
+  if (!entry) {
+    const listed = config.bundles.map((b) => `${b.aoi}/${b.version}`).join(", ");
+    fail(
+      `bundle no encontrado en dashboard.config.json: ${aoi}/${version}`,
+      `    disponibles: ${listed || "(ninguno)"}`,
+    );
+  }
+  return entry;
+}
+
+function resolveSource(entry, override) {
+  const base = override || entry.source;
+  if (!base) {
+    fail(
+      `no hay source para ${entry.aoi}/${entry.version}`,
+      `    define "source" en dashboard.config.json o pasa --source`,
+    );
+  }
+  return resolve(ROOT, base, entry.aoi, entry.version);
+}
+
+function resolveIssuers(entry, overrideIssuer) {
+  const issuers = overrideIssuer
+    ? [overrideIssuer]
+    : entry.issuers;
+  if (!issuers || issuers.length === 0) {
+    fail(
+      `no hay emisores de confianza para ${entry.aoi}/${entry.version}`,
+      `    añade "issuers" en dashboard.config.json o pasa --issuer`,
+    );
+  }
+  return issuers;
+}
+
 async function walk(dir, prefix = "") {
   const found = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -59,40 +127,58 @@ async function walk(dir, prefix = "") {
   return found.sort();
 }
 
-function fail(message, detail) {
-  console.error(`\n  ERROR  ${message}`);
-  if (detail) console.error(detail);
-  console.error("\n  No se copió nada. public/data/ queda como estaba.\n");
-  process.exit(1);
-}
-
 async function main() {
-  const source = sourceRoot();
+  const args = parseArgs();
+  const aoi = args.aoi;
+  const version = args.version;
+
+  if (!aoi || !version) {
+    fail(
+      "faltan --aoi y --version",
+      `    uso: node scripts/sync-data.mjs --aoi <id> --version <vN> [--source <url|ruta>] [--issuer <pubkey>]`,
+    );
+  }
+
+  const config = await readConfig();
+  const entry = findBundleEntry(config, aoi, version);
+  const source = resolveSource(entry, args.source);
+  const issuers = resolveIssuers(entry, args.issuer);
+  const destination = join(ROOT, "public", "bundles", aoi, version);
 
   try {
     await stat(source);
   } catch {
     fail(
       `no está el bundle de origen: ${source}`,
-      "  Pasa la ruta con --from <dir que contiene <aoi>/<version>/>, por ejemplo:\n" +
-        "    node scripts/sync-data.mjs --from ../Wombat-core/contracts/v1/fixtures/bundle",
+      `  Pasa la ruta con --source <dir que contiene <aoi>/<version>/>`,
     );
   }
 
-  console.log(`\nWOMBAT sync-data  —  ${AOI_ID}/${BUNDLE_VERSION}`);
-  console.log(`origen:  ${source}`);
-  console.log(`destino: ${relative(ROOT, DESTINATION)}\n`);
+  console.log(`\nWOMBAT sync-data  —  ${aoi}/${version}`);
+  console.log(`origen:  ${relative(ROOT, source)}`);
+  console.log(`destino: ${relative(ROOT, destination)}\n`);
 
-  const index = JSON.parse(await readFile(join(source, "index.json"), "utf8"));
+  // ── 1. index.json y puerta de versión ──────────────────────────────
+  const indexRaw = await readFile(join(source, "index.json"), "utf8");
+  const index = JSON.parse(indexRaw);
 
-  if (index.aoi_id !== AOI_ID || index.bundle_version !== BUNDLE_VERSION) {
+  if (index.aoi_id !== aoi || index.bundle_version !== version) {
     fail(
-      "el bundle de origen no es el que este script fija",
-      `  esperado ${AOI_ID}/${BUNDLE_VERSION}, encontrado ${index.aoi_id}/${index.bundle_version}`,
+      "el bundle de origen no coincide con la entrada de config",
+      `  esperado ${aoi}/${version}, encontrado ${index.aoi_id}/${index.bundle_version}`,
     );
   }
 
-  // 1. Los bytes. Cada archivo listado en index.json contra su sha256.
+  // Puerta de versión: major debe ser 1
+  const major = Number(index.contract_version.split(".")[0]);
+  if (major !== 1) {
+    fail(
+      `contrato no soportado: ${index.contract_version}`,
+      `    este dashboard solo soporta contract_version major 1.`,
+    );
+  }
+
+  // ── 2. Bytes: sha256 de cada archivo contra index.json ─────────────
   const files = await verifyFileHashes(index, async (path) =>
     new Uint8Array(await readFile(join(source, path))),
   );
@@ -106,7 +192,7 @@ async function main() {
   }
   console.log(`  OK  bytes            ${files.checks.length} archivos coinciden con index.json`);
 
-  // 2. Nada fuera de la lista. Un archivo no listado no tiene hash que lo avale.
+  // ── 3. Nada fuera de la lista ──────────────────────────────────────
   const onDisk = await walk(source);
   const listed = new Set([...index.files.map((f) => f.path), "index.json"]);
   const unlisted = onDisk.filter((p) => !listed.has(p));
@@ -118,7 +204,7 @@ async function main() {
   }
   console.log(`  OK  inventario       ningún archivo sin declarar`);
 
-  // 3. Los bloques: hash canónico y firma Ed25519.
+  // ── 4. Bloques: hash canónico + firma Ed25519 ──────────────────────
   const blockPaths = onDisk.filter((p) => p.startsWith("wonb/") && p.endsWith(".json"));
   const blocks = await Promise.all(
     blockPaths.map(async (path) => ({
@@ -130,7 +216,7 @@ async function main() {
   const verdicts = verifyBlocks(blocks);
   if (!verdicts.ok) {
     fail(
-      `${verdicts.failures.length} bloque(s) no verifican`,
+      `${verdicts.failures.length} bloque(s) no verifican (hash o firma)`,
       verdicts.failures
         .map((f) => `    ${f.path}  hash_ok=${f.hashOk} signature_ok=${f.signatureOk}${f.error ? ` (${f.error})` : ""}`)
         .join("\n"),
@@ -138,17 +224,22 @@ async function main() {
   }
   console.log(`  OK  bloques          ${verdicts.checks.length} con hash y firma válidos`);
 
-  // 4. La cadena y los emisores.
+  // ── 5. Cadena de padres ────────────────────────────────────────────
   const chain = verifyChain(blocks);
   if (chain.length > 0) fail("la cadena de bloques está incompleta", chain.map((p) => `    ${p}`).join("\n"));
   console.log(`  OK  cadena           todos los parents existen`);
 
-  const trusted = JSON.parse(await readFile(join(source, "trusted-issuers.json"), "utf8"));
-  const issuers = verifyIssuers(blocks, trusted);
-  if (issuers.length > 0) fail("hay bloques de emisores no autorizados", issuers.map((p) => `    ${p}`).join("\n"));
-  console.log(`  OK  emisores         todos confiables y con el rol correcto`);
+  // ── 6. Emisores pinneados (de dashboard.config.json, NO del bundle) ─
+  const trusted = { version: 1, issuers: issuers.map((pubkey) => ({
+    issuer: pubkey,
+    name: "pinneado desde dashboard.config.json",
+    roles: ["change", "context", "risk", "action"],
+  })) };
+  const issuerProblems = verifyIssuers(blocks, trusted);
+  if (issuerProblems.length > 0) fail("hay bloques de emisores no autorizados", issuerProblems.map((p) => `    ${p}`).join("\n"));
+  console.log(`  OK  emisores         todos firman con claves pinneadas`);
 
-  // 5. TTL contra generated_at, no contra el reloj de hoy (regla 6).
+  // ── 7. TTL contra index.generated_at (instantánea, no "ahora") ─────
   const asOf = new Date(index.generated_at);
   const expired = blocks.filter(({ block }) => isExpired(block, asOf));
   if (expired.length > 0) {
@@ -159,32 +250,31 @@ async function main() {
   }
   console.log(`  OK  TTL              vigentes a ${index.generated_at} (instantánea)`);
 
-  // Verificado. Ahora, y solo ahora, se copia.
-  await rm(DESTINATION, { recursive: true, force: true });
+  // ── 8. Copiar (solo después de verificar todo) ─────────────────────
+  await rm(destination, { recursive: true, force: true });
   for (const path of onDisk) {
-    const target = join(DESTINATION, path);
+    const target = join(destination, path);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, await readFile(join(source, path)));
   }
 
-  // El navegador vuelve a verificar por su cuenta; esto es el acta de lo que
-  // vio sync-data, para poder comparar y para que la UI pueda decir cuándo se
-  // sincronizó sin tener que confiar en su propia memoria.
+  // ── 9. Manifiesto local de sincronización ──────────────────────────
   const report = {
     synced_at: new Date().toISOString(),
-    aoi_id: AOI_ID,
-    bundle_version: BUNDLE_VERSION,
+    aoi_id: aoi,
+    bundle_version: version,
     contract_version: index.contract_version,
     generated_at: index.generated_at,
     data_origin: index.data_origin,
     source: relative(ROOT, source).replaceAll("\\", "/"),
+    issuers,
     files_checked: files.checks.length,
     blocks_verified: verdicts.checks.length,
     verdict: "ok",
   };
-  await writeFile(join(DESTINATION, "sync-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  await writeFile(join(destination, "sync-report.json"), `${JSON.stringify(report, null, 2)}\n`);
 
-  console.log(`\n  ${onDisk.length} archivos copiados a ${relative(ROOT, DESTINATION).replaceAll("\\", "/")}`);
+  console.log(`\n  ${onDisk.length} archivos copiados a ${relative(ROOT, destination).replaceAll("\\", "/")}`);
   console.log(`  instantánea de ${index.generated_at}  |  data_origin: ${index.data_origin}\n`);
 }
 
