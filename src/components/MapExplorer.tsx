@@ -6,9 +6,10 @@
  *
  * - Los rásteres t1, t2 y delta son los PNG del bundle, ya verificados.
  * - Las celdas, su estado y su puesto salen de los bloques `risk` firmados.
- * - NO hay teselas remotas: el diseño original pedía imágenes satelitales a un
- *   servidor externo, y el dashboard tiene que funcionar estático y sin red.
- *   El fondo es un color y encima van los bytes del bundle.
+ * - El mapa base usa teselas de OpenStreetMap para dar contexto geográfico
+ *   fuera del área cubierta por las imágenes satelitales.
+ * - Los rásteres y las capas de análisis siguen saliendo del bundle verificado.
+ *   Si no hay conexión, el análisis local sigue disponible sobre el fondo base.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
@@ -165,15 +166,32 @@ export function MapExplorer({
           fitBoundsOptions: { padding: MAP_PADDING },
           minZoom: 8,
           maxZoom: 17,
-          attributionControl: false,
+          attributionControl: true,
           style: {
             version: 8,
-            sources: {},
+            sources: {
+              // Contexto geográfico para el espacio que queda fuera del AOI.
+              // Se conservan las capas analíticas locales incluso sin conexión.
+              basemap: {
+                type: 'raster',
+                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                tileSize: 256,
+                minzoom: 0,
+                maxzoom: 19,
+                attribution: '© OpenStreetMap contributors',
+              },
+            },
             layers: [
               {
                 id: 'background',
                 type: 'background',
                 paint: { 'background-color': palette.background },
+              },
+              {
+                id: 'basemap',
+                type: 'raster',
+                source: 'basemap',
+                paint: { 'raster-opacity': 1, 'raster-fade-duration': 150 },
               },
             ],
           },
