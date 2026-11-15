@@ -1,4 +1,4 @@
-﻿@import './mireya/header.css';
+@import './mireya/header.css';
 /* Active App uses .toolbar. Preserve the Explorer header for later integration. */
 .toolbar {
   grid-area: header; display: flex; flex-wrap: wrap; align-items: center;
@@ -29,4 +29,3 @@
   .toolbar .meta { flex-basis: 100%; }
   .toolbar .view-toggle { width: 100%; }
 }
-

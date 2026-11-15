@@ -4,10 +4,10 @@ import { nextNavigationIndex } from '../frontend/navigation'
 
 export type NavigationDestination = 'explore' | 'layers' | 'evidence' | 'guide'
 const destinations = [
-  { id: 'explore', title: 'Explorar', Icon: Map },
-  { id: 'layers', title: 'Capas', Icon: Layers3 },
-  { id: 'evidence', title: 'Evidencia', Icon: ShieldCheck },
-  { id: 'guide', title: 'Metodología', Icon: BookOpen },
+  { id: 'explore', title: 'Explore', Icon: Map },
+  { id: 'layers', title: 'Layers', Icon: Layers3 },
+  { id: 'evidence', title: 'Evidence', Icon: ShieldCheck },
+  { id: 'guide', title: 'Guide', Icon: BookOpen },
 ] as const
 
 export function FloatingNavigation({
@@ -57,7 +57,7 @@ export function FloatingNavigation({
         ref={trigger}
         className="hamburger-trigger"
         aria-label={
-          open ? 'Cerrar el menú de navegación' : 'Abrir el menú de navegación'
+          open ? 'Close navigation' : 'Open navigation'
         }
         aria-expanded={open}
         aria-haspopup="menu"
@@ -71,7 +71,7 @@ export function FloatingNavigation({
           ref={panel}
           id="explorer-navigation"
           className="floating-menu"
-          aria-label="Navegación del explorador"
+          aria-label="Explorer navigation"
           role="menu"
           onKeyDown={(event) => {
             const buttons = Array.from(

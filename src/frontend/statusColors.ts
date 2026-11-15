@@ -14,8 +14,8 @@ export const STATUS_FILL: Record<CellStatus, string> = {
 
 /** Orden y nombre para el público de cada estado. */
 export const STATUS_LEGEND: [CellStatus, string][] = [
-  ['review_high', 'Revisar primero'],
-  ['review_medium', 'Revisar después'],
-  ['review_low', 'Sin prioridad'],
-  ['insufficient_quality', 'Sin datos suficientes'],
+  ['review_high', 'Check first'],
+  ['review_medium', 'Check next'],
+  ['review_low', 'Lower priority'],
+  ['insufficient_quality', 'Not enough usable data'],
 ]

@@ -270,3 +270,106 @@ body:has(> #root > .explorer-guide) { min-width: 0; }
   .explorer-compare-trigger { max-width: 160px; }
 }
 @media (prefers-reduced-motion: reduce) { .explorer-layout *, .explorer-header * { scroll-behavior: auto; transition: none !important; animation: none !important; } }
+
+/* Restoration against 198e99c. Scoped overrides keep the integrated shared
+   styles intact. Ximena: review this section and OceanEvidence.tsx together. */
+.explorer-app, .explorer-layout {
+  --ocean-panel: rgba(29, 44, 73, .96);
+  --ocean-raised: #263b5b;
+  --ocean-text: #eef5ff;
+  --ocean-muted: #afc3d7;
+  --ocean-border: rgba(213, 229, 232, .3);
+  --floating-background: rgba(29, 44, 73, .96);
+  --text-primary: #eef5ff;
+  --text-secondary: #ceddec;
+  --text-muted: #afc3d7;
+  --surface-raised: #263b5b;
+  --surface-soft: #20354f;
+  --map-background: #14213c;
+  --map-roads: #76cfdf;
+  --map-grid-line: #e6edf1;
+  --map-priority-line: #fff8ea;
+  --selected-outline: #e97873;
+  --panel: #1d2c49;
+  --muted: #afc3d7;
+  color-scheme: dark;
+}
+.explorer-app > .explorer-layout { position: relative; inset: auto; width: 100%; height: 100%; min-height: 0; }
+.explorer-app [hidden] { display: none !important; }
+.explorer-header.toolbar { align-items: center; }
+.explorer-header .view-toggle { display: flex; align-items: center; gap: 7px; padding: 11px 15px; }
+.explorer-header label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.explorer-header select { padding: 6px; background: #285078; border: 1px solid #718fa9; border-radius: 6px; }
+.explorer-header-caption { font-weight: 650; }
+.explorer-header-caption small { font-weight: 600; }
+.explorer-action-bar .floating-navigation { position: relative; inset: auto; z-index: 12; }
+.explorer-layout .hamburger-trigger { width: 42px; height: 42px; padding: 0; background: #214b7d; }
+.explorer-layout .floating-menu { color: var(--ocean-text); background: var(--ocean-panel); z-index: 30; }
+.explorer-layout .navigation-card { min-height: 92px; }
+.explorer-layout .navigation-card svg { color: var(--ocean-teal); }
+.explorer-layout .navigation-card[aria-current=page] { border-color: var(--ocean-coral); background: #e9787326; }
+.explorer-layout .navigation-card[aria-current=page] svg { color: var(--ocean-coral); }
+.explorer-layout .ocean-layer-panel { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
+.ocean-layer-panel .panel-heading { padding: 0 20px 12px 0; }
+.ocean-layer-panel .layer-body { padding: 0; }
+.ocean-layer-panel .layer-row { display: flex; justify-content: space-between; }
+.ocean-layer-panel .switch, .ocean-layer-panel .layer-swatch { display: none; }
+.ocean-layer-panel .layer-row input { position: static; width: 17px; height: 17px; opacity: 1; accent-color: var(--ocean-teal); flex-shrink: 0; }
+.ocean-layer-panel :is(.layer-row small, .fixture-note, .change-opacity p, .explorer-field small) { color: var(--ocean-muted); }
+.ocean-layer-panel .comparison-help { color: var(--ocean-muted); background: #263b5b; border-color: var(--ocean-border); }
+.explorer-evidence .verification { background: transparent; border: 0; padding: 0; }
+.explorer-evidence .verification p { color: var(--ocean-muted); }
+.explorer-evidence .verification .section-title { font-size: 11px; }
+.explorer-evidence .wonb-sections { display: grid; gap: 10px; }
+.explorer-evidence .wonb-sections section { display: flex; gap: 8px; min-width: 0; }
+.explorer-evidence .wonb-sections section > div { min-width: 0; }
+.explorer-evidence .wonb-sections h3 { font-size: 11px; margin: 0; }
+.explorer-evidence .wonb-sections p, .explorer-evidence .verification-status { font-size: 10px; }
+.explorer-evidence code { overflow-wrap: anywhere; }
+.explorer-evidence-fold > summary { list-style: none; }
+.explorer-layout .maplibregl-ctrl-attrib { max-width: min(340px, calc(100vw - 22px)); background: #13243eef !important; color: #d4dce3; border-radius: 10px; font-size: 9px !important; line-height: 1.4; padding: 4px 7px; }
+.explorer-layout .maplibregl-ctrl-attrib a { color: inherit; }
+.explorer-layout .maplibregl-ctrl-attrib-button { background-color: #afc3d7; border-radius: 50%; }
+.explorer-layout .maplibregl-ctrl-bottom-right { right: 4px; bottom: 2px; }
+.ocean-load-state { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); width: min(400px, calc(100% - 30px)); padding: 24px; text-align: center; }
+.ocean-guide-open { height: auto; min-height: 100dvh; overflow: visible; }
+.explorer-app .explorer-guide { min-height: 100dvh; }
+@media (max-width: 1100px) {
+  /* The open Evidence header already names the cell and can collapse it.
+     Show the reopening chip when the floating panel is closed. */
+  .explorer-has-evidence .explorer-selection-chip { display: none; }
+}
+@media (max-width: 760px) {
+  .explorer-app > .explorer-layout { height: max(820px, 100dvh); }
+  .explorer-header.toolbar { display: grid; grid-template-columns: 56px 1fr auto; align-items: center; }
+  .explorer-header .explorer-brand { grid-row: 1 / 3; padding: 3px; justify-content: center; }
+  .explorer-brand .brand-logo { width: 48px; height: 54px; }
+  .explorer-header-caption { grid-column: 2; font-size: 10px; justify-self: start; }
+  .explorer-header label { grid-column: 2; grid-row: 2; margin: 0; font-size: 0; padding: 2px; justify-self: start; max-width: 100%; }
+  .explorer-header select { max-width: 100%; font-size: 10px; }
+  .explorer-header .view-toggle { grid-column: 3; grid-row: 1 / 3; padding: 8px; font-size: 10px; }
+  .explorer-header .view-toggle svg { display: none; }
+  .explorer-layout .floating-menu { left: 0; top: 48px; width: 238px; }
+  .explorer-layout .navigation-card { min-height: 76px; }
+  .explorer-left-panel { max-height: calc(100% - 410px); }
+  .explorer-right-dock { max-height: calc(100% - 436px); }
+  .explorer-layout .explorer-selection-chip { font-size: 9px; max-width: calc(100% - 145px); }
+  .explorer-observation-title { grid-column: 1 / -1; }
+}
+
+/* Final corrections: keep methodology readable under both shared themes.
+   No content or shared theme rules are changed. */
+.explorer-guide {
+  color-scheme: dark;
+  background: #14213c;
+  color: #ceddec;
+}
+.explorer-guide :is(h1, h2, h3, strong) { color: #eef5ff; }
+.explorer-guide :is(p, li, .method-scale) { color: #ceddec; }
+.explorer-guide :is(a, .text-button, h1 span, article > svg, .limitations > svg) { color: #76cfdf; }
+.explorer-guide .section-caption { color: #afc3d7; }
+.explorer-guide :is(article, .limitations) { background: #1d2c49; border: 1px solid #58718d; }
+.explorer-guide code { background: #263b5b; color: #eef5ff; }
+.explorer-guide a { text-decoration: underline; text-underline-offset: 3px; }
+.explorer-guide :is(a, button):focus-visible { outline: 2px solid #76cfdf; outline-offset: 3px; }
+.explorer-evidence-body > .explorer-cell-selector { margin: 0 0 16px; }
