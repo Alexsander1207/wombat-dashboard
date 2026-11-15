@@ -276,6 +276,58 @@ describe('verified Explorer adapter', () => {
     expect(screen.getByText('800 m (0.8 km)')).toBeVisible();
     expect(screen.getByText(/These road lengths belong to this cell/)).toBeVisible();
   });
+  it('opens an empty Evidence chooser from navigation and keeps it open on repeated navigation', async () => {
+    const data = toExplorer(thailand);
+    const { container } = render(<MapHarness data={data} />);
+    const openEvidence = () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Evidence' }));
+    };
+    openEvidence();
+    expect(screen.getByText('Pick a cell on the map or find its ID to see its evidence.')).toBeVisible();
+    expect(within(screen.getByRole('combobox', { name: 'Choose a cell' })).getAllByRole('option')).toHaveLength(601);
+    expect(container.querySelectorAll('.explorer-left-panel')).toHaveLength(1);
+    expect(container.querySelector('.explorer-evidence-panel')).toBeNull();
+    openEvidence();
+    expect(screen.getByRole('combobox', { name: 'Choose a cell' })).toBeVisible();
+    expect(container.querySelector('.explorer-evidence-panel')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+    expect(screen.getByRole('menuitem', { name: 'Evidence' })).toHaveAttribute('aria-current', 'page');
+  });
+  it('opens selected signed Evidence from navigation, closes Layers and reopens collapsed or closed details without a second chooser', async () => {
+    const data = toExplorer(thailand);
+    const cell = data.ranked[0];
+    const { container } = render(<MapHarness data={data} />);
+    await waitFor(() => expect(maps.at(-1)?.getLayer('selected')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: `Select rank ${cell.rank}: ${cell.cellId}` }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open layers test' }));
+    expect(screen.getByText('Choose what to show on the map.')).toBeVisible();
+    const openEvidence = () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Evidence' }));
+    };
+    openEvidence();
+    expect(container.querySelector('.explorer-left-panel')).toBeNull();
+    expect(container.querySelectorAll('.explorer-evidence-panel')).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: `Cell ${cell.cellId}` })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Evidence cell' })).toHaveValue(cell.cellId);
+    expect(within(screen.getByRole('combobox', { name: 'Evidence cell' })).getAllByRole('option')).toHaveLength(601);
+    expect(screen.getByText('Signed score').nextElementSibling).toHaveTextContent(`${cell.scoreBp} bp`);
+    expect(screen.queryByText('Pick a cell on the map or find its ID to see its evidence.')).not.toBeInTheDocument();
+    const fold = container.querySelector<HTMLDetailsElement>('.explorer-evidence-fold')!;
+    fireEvent.click(screen.getByText('Evidence', { selector: 'summary' }));
+    expect(fold.open).toBe(false);
+    openEvidence();
+    expect(fold.open).toBe(true);
+    expect(screen.getByRole('heading', { name: `Cell ${cell.cellId}` })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Close evidence' }));
+    expect(container.querySelector('.explorer-evidence-panel')).toBeNull();
+    openEvidence();
+    expect(screen.getByRole('heading', { name: `Cell ${cell.cellId}` })).toBeVisible();
+    expect(container.querySelectorAll('.explorer-evidence-panel')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
+    expect(screen.getByRole('menuitem', { name: 'Evidence' })).toHaveAttribute('aria-current', 'page');
+  });
   it('offers all 600 signed cells in Evidence and synchronizes dropdown, map and Top 10 selections', async () => {
     const data = toExplorer(thailand);
     render(<MapHarness data={data} />);
