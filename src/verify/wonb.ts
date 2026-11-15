@@ -62,6 +62,8 @@ function publicKeyOf(issuer: string): Uint8Array {
  */
 export function blockDigest(block: WonbBlock): Uint8Array {
   const { id: _id, signature: _signature, ...body } = block;
+  void _id;
+  void _signature;
   const canonical = canonicalize(body);
   if (canonical === undefined) {
     throw new Error("el cuerpo del bloque no es canonicalizable");
