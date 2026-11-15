@@ -38,6 +38,18 @@
         box-shadow: 0 18px 40px rgba(4, 10, 24, 0.35);
         color: #eef5ff;
       }
+      /* El wombat: centrado sobre el texto. Con "reducir movimiento" el
+         <picture> elige un cuadro fijo en vez de la animación. */
+      .boot-loader-mascot {
+        justify-self: center;
+        display: block;
+        margin: -6px 0 -2px;
+      }
+      .boot-loader-mascot img {
+        display: block;
+        width: 120px;
+        height: 80px;
+      }
       .boot-loader-head {
         display: flex;
         align-items: baseline;
@@ -100,6 +112,10 @@
       <!-- React reemplaza esto al montar (LoadingProgress usa el mismo marcado). -->
       <div class="boot-loader">
         <section class="boot-loader-card is-indeterminate" aria-label="Carga de la aplicación">
+          <picture class="boot-loader-mascot" aria-hidden="true">
+            <source srcset="./brand/wombat-loading-still.webp" media="(prefers-reduced-motion: reduce)" />
+            <img src="./brand/wombat-loading.webp" width="120" height="80" alt="" />
+          </picture>
           <div class="boot-loader-head">
             <p class="boot-loader-title" role="status">Cargando…</p>
           </div>

@@ -8,6 +8,9 @@
 import type { CSSProperties } from 'react'
 import type { LoadProgress } from '../bundle/contract.ts'
 
+/** El wombat animado (public/brand), el mismo que pinta index.html. */
+const MASCOT = import.meta.env.BASE_URL + 'brand/'
+
 interface Props {
   /** null mientras aún no se sabe cuántos archivos hay. */
   progress: LoadProgress | null
@@ -31,6 +34,13 @@ export function LoadingProgress({ progress }: Props) {
         className={`boot-loader-card ${known ? '' : 'is-indeterminate'}`}
         aria-label="Carga de los datos verificados"
       >
+        <picture className="boot-loader-mascot" aria-hidden="true">
+          <source
+            srcSet={`${MASCOT}wombat-loading-still.webp`}
+            media="(prefers-reduced-motion: reduce)"
+          />
+          <img src={`${MASCOT}wombat-loading.webp`} width={120} height={80} alt="" />
+        </picture>
         <div className="boot-loader-head">
           <p className="boot-loader-title" role="status">
             Cargando…
