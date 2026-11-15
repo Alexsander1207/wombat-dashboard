@@ -15,8 +15,12 @@
  * El navegador habla HTTP con el gateway; nunca libp2p (R18).
  */
 
-/** Ruta del último evento, relativa a la URL base del gateway. */
-export const LATEST_EVENT_PATH = '/api/v1/events/latest'
+/**
+ * Ruta de los eventos, relativa a la URL base del gateway. El último evento de
+ * un área se pide en `<EVENTS_PATH>/<aoi_id>`: así la tarjeta sigue al área que
+ * se está viendo y no muestra el evento de otra.
+ */
+export const EVENTS_PATH = '/api/v1/events'
 
 /** Un evento del gateway, ya validado y con nombres de la app. */
 export interface LiveEvent {
@@ -47,7 +51,7 @@ function requireString(source: Record<string, unknown>, key: string): string {
 }
 
 /**
- * Valida la respuesta de `/api/v1/events/latest` y la pasa a `LiveEvent`.
+ * Valida un evento del gateway y lo pasa a `LiveEvent`.
  *
  * Lanza si falta un campo esencial: un evento a medias no se muestra.
  */
@@ -73,20 +77,34 @@ export function parseLatestEvent(raw: unknown): LiveEvent {
   }
 }
 
-/** URL del último evento a partir de la base configurada. */
-export function latestEventUrl(baseUrl: string): string {
-  return `${baseUrl.replace(/\/+$/, '')}${LATEST_EVENT_PATH}`
+/** URL del último evento de un área a partir de la base configurada. */
+export function areaEventUrl(baseUrl: string, aoiId: string): string {
+  return `${baseUrl.replace(/\/+$/, '')}${EVENTS_PATH}/${encodeURIComponent(aoiId)}`
 }
 
-/** Pide el último evento al gateway. Lanza si no responde o responde mal. */
-export async function fetchLatestEvent(
+/**
+ * Pide al gateway el último evento de un área.
+ *
+ * Devuelve `null` cuando el gateway responde que esa área todavía no tiene
+ * eventos (HTTP 404 con `error: "no_verified_events"`): el gateway está vivo,
+ * solo que no hay nada que mostrar. Lanza si no responde o responde mal.
+ */
+export async function fetchAreaEvent(
   baseUrl: string,
+  aoiId: string,
   signal?: AbortSignal,
-): Promise<LiveEvent> {
-  const response = await fetch(latestEventUrl(baseUrl), {
+): Promise<LiveEvent | null> {
+  const response = await fetch(areaEventUrl(baseUrl, aoiId), {
     cache: 'no-store',
     signal,
   })
+  if (response.status === 404) {
+    const body: unknown = await response.json().catch(() => null)
+    if (isRecord(body) && body.error === 'no_verified_events') return null
+    throw new Error('el gateway respondió HTTP 404')
+  }
   if (!response.ok) throw new Error(`el gateway respondió HTTP ${response.status}`)
-  return parseLatestEvent(await response.json())
+  const event = parseLatestEvent(await response.json())
+  // Se pidió un área: un evento de otra no se muestra como si fuera de esta.
+  return event.aoiId === aoiId ? event : null
 }

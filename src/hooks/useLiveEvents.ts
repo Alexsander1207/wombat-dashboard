@@ -1,12 +1,12 @@
 /**
- * Sondeo del gateway: pide el último evento cada cierto tiempo.
+ * Sondeo del gateway: pide el último evento del área que se está viendo.
  *
  * No toca el bundle ni la verificación. Guarda en memoria los eventos que va
  * viendo en esta sesión, sin repetir (se distinguen por `wonb_id`), y dice si
  * el gateway responde o no. Si la configuración no trae gateway, no hace nada.
  */
 import { useEffect, useState } from 'react'
-import { fetchLatestEvent, type LiveEvent } from '../live/gateway.ts'
+import { fetchAreaEvent, type LiveEvent } from '../live/gateway.ts'
 
 export interface GatewayConfig {
   /** URL base del gateway, sin la ruta del API. */
@@ -57,13 +57,21 @@ export function mergeEvent(events: LiveEvent[], incoming: LiveEvent): LiveEvent[
   return [incoming, ...events].slice(0, MAX_EVENTS)
 }
 
-export function useLiveEvents(gateway: GatewayConfig | null | undefined): LiveState {
-  const [state, setState] = useState<LiveState>(INITIAL)
+export function useLiveEvents(
+  gateway: GatewayConfig | null | undefined,
+  aoiId: string | null | undefined,
+): LiveState {
+  // El estado lleva el área a la que pertenece: al cambiar de área, lo visto
+  // de la anterior deja de mostrarse en el mismo render, sin esperar a la red.
+  const [state, setState] = useState<LiveState & { aoiId: string | null }>({
+    ...INITIAL,
+    aoiId: null,
+  })
   const url = gateway?.url
   const seconds = gateway ? pollSecondsOf(gateway) : DEFAULT_POLL_SECONDS
 
   useEffect(() => {
-    if (!url) return
+    if (!url || !aoiId) return
 
     let cancelled = false
     let inFlight: AbortController | null = null
@@ -77,19 +85,25 @@ export function useLiveEvents(gateway: GatewayConfig | null | undefined): LiveSt
       const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
       try {
-        const event = await fetchLatestEvent(url, controller.signal)
+        const event = await fetchAreaEvent(url, aoiId, controller.signal)
         if (cancelled) return
-        setState((previous) => ({
-          status: 'online',
-          events: mergeEvent(previous.events, event),
-          lastChecked: new Date().toISOString(),
-          error: null,
-        }))
+        setState((previous) => {
+          const seen = previous.aoiId === aoiId ? previous.events : []
+          return {
+            aoiId,
+            status: 'online',
+            // `null`: el gateway responde, pero esta área aún no tiene eventos.
+            events: event ? mergeEvent(seen, event) : seen,
+            lastChecked: new Date().toISOString(),
+            error: null,
+          }
+        })
       } catch (cause) {
         if (cancelled) return
-        // Los eventos ya vistos se conservan: lo que cambia es el estado.
+        // Los eventos ya vistos del área se conservan: lo que cambia es el estado.
         setState((previous) => ({
-          ...previous,
+          aoiId,
+          events: previous.aoiId === aoiId ? previous.events : [],
           status: 'offline',
           lastChecked: new Date().toISOString(),
           error:
@@ -119,7 +133,13 @@ export function useLiveEvents(gateway: GatewayConfig | null | undefined): LiveSt
       document.removeEventListener('visibilitychange', onVisible)
       inFlight?.abort()
     }
-  }, [url, seconds])
+  }, [url, aoiId, seconds])
 
-  return state
+  if (!aoiId || state.aoiId !== aoiId) return INITIAL
+  return {
+    status: state.status,
+    events: state.events,
+    lastChecked: state.lastChecked,
+    error: state.error,
+  }
 }
