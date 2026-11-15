@@ -197,6 +197,35 @@ export function MapExplorer({
             source: 'basemap',
             paint: { 'raster-opacity': 1, 'raster-fade-duration': 150 },
           })
+          // Capa satelital de contexto, como en el Explorer original de Mireya.
+          // No forma parte del bundle ni de la evidencia firmada: solo es fondo.
+          map.addSource('satellite-context', {
+            type: 'raster',
+            tiles: [
+              'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            ],
+            tileSize: 256,
+            minzoom: 0,
+            maxzoom: 19,
+            attribution: 'Imagery © Esri, Vantor, Earthstar Geographics, GIS User Community',
+          })
+          map.addLayer({
+            id: 'satellite-context',
+            type: 'raster',
+            source: 'satellite-context',
+            paint: {
+              'raster-opacity': 0.88,
+              'raster-saturation': -0.25,
+              'raster-brightness-max': 0.78,
+              'raster-fade-duration': 150,
+            },
+          })
+          map.on('error', (event) => {
+            if ('sourceId' in event && event.sourceId === 'satellite-context') {
+              if (map.getLayer('satellite-context'))
+                map.setLayoutProperty('satellite-context', 'visibility', 'none')
+            }
+          })
           const coords = bundle.coordinates
           map.addSource('grid', { type: 'geojson', data: bundle.grid })
           map.addSource('roads', {
