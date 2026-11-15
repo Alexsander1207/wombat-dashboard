@@ -1,35 +1,110 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import { loadBundle, releaseBundle, type VerifiedBundle } from "./data/loadBundle.ts";
+import { MapView } from "./components/MapView.tsx";
+import type { OverlayKey } from "./components/statusColors.ts";
+import { readableDateTime } from "./format.ts";
+import "./App.css";
 
-function App() {
-  const [count, setCount] = useState(0)
+const BUNDLE_BASE = "/data/piura-demo/v0";
+
+const OVERLAY_LABELS: Record<OverlayKey, string> = {
+  t1: "T1",
+  t2: "T2",
+  delta: "Delta",
+};
+
+export default function App() {
+  const [bundle, setBundle] = useState<VerifiedBundle | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [overlay, setOverlay] = useState<OverlayKey>("delta");
+  const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    loadBundle(BUNDLE_BASE)
+      .then((b) => {
+        if (!cancelled) {
+          setBundle(b);
+          setLoading(false);
+        }
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setLoading(false);
+          setError(cause instanceof Error ? cause.message : String(cause));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (bundle) releaseBundle(bundle);
+    };
+  }, [bundle]);
+
+  if (error) {
+    return (
+      <div className="error">
+        <h2>No se pudo cargar el bundle</h2>
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()}>Reintentar</button>
+      </div>
+    );
+  }
+
+  if (loading || !bundle) {
+    return (
+      <div className="loading">
+        <p>Verificando y cargando el bundle…</p>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="app">
+      <header className="toolbar">
+        <label>
+          Overlay:
+          <select
+            value={overlay}
+            onChange={(e) => setOverlay(e.target.value as OverlayKey)}
+          >
+            {Object.entries(OVERLAY_LABELS).map(([key, label]) => (
+              <option key={key} value={key as OverlayKey}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <span className="meta">
+          {bundle.index.aoi_id} / {bundle.index.bundle_version} ·
+          {readableDateTime(bundle.index.generated_at)}
+        </span>
+      </header>
+      <div className="mapa">
+        <MapView
+          bundle={bundle}
+          overlay={overlay}
+          selectedCellId={selectedCellId}
+          onSelectCell={setSelectedCellId}
+        />
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+      {selectedCellId && (
+        <aside className="cell-info">
+          <button className="close" onClick={() => setSelectedCellId(null)}>
+            ×
+          </button>
+          <p>Celda: {selectedCellId}</p>
+        </aside>
+      )}
+    </div>
+  );
 }
-
-export default App
