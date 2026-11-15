@@ -169,29 +169,12 @@ export function MapExplorer({
           attributionControl: true,
           style: {
             version: 8,
-            sources: {
-              // Contexto geográfico para el espacio que queda fuera del AOI.
-              // Se conservan las capas analíticas locales incluso sin conexión.
-              basemap: {
-                type: 'raster',
-                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-                tileSize: 256,
-                minzoom: 0,
-                maxzoom: 19,
-                attribution: '© OpenStreetMap contributors',
-              },
-            },
+            sources: {},
             layers: [
               {
                 id: 'background',
                 type: 'background',
                 paint: { 'background-color': palette.background },
-              },
-              {
-                id: 'basemap',
-                type: 'raster',
-                source: 'basemap',
-                paint: { 'raster-opacity': 1, 'raster-fade-duration': 150 },
               },
             ],
           },
@@ -200,6 +183,22 @@ export function MapExplorer({
           if (disposed) return
           performance.mark(loadedAt)
           performance.measure(`wombat:map:${before ? 'comparison' : 'base'}:load`, startedAt, loadedAt)
+          // Se agrega después del load inicial: si la red o el proveedor de
+          // teselas falla, nunca bloquea el dibujo de las capas locales firmadas.
+          map.addSource('basemap', {
+            type: 'raster',
+            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+            tileSize: 256,
+            minzoom: 0,
+            maxzoom: 19,
+            attribution: '© OpenStreetMap contributors',
+          })
+          map.addLayer({
+            id: 'basemap',
+            type: 'raster',
+            source: 'basemap',
+            paint: { 'raster-opacity': 1, 'raster-fade-duration': 150 },
+          })
           const coords = bundle.coordinates
           map.addSource('grid', { type: 'geojson', data: bundle.grid })
           map.addSource('roads', {
