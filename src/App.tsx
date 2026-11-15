@@ -1,331 +1,399 @@
-import { useEffect, useRef, useState } from "react";
-import { loadAndVerify, releaseBundle, type LoadedBundle } from "./bundle/contract.ts";
-import { MapView } from "./components/MapView.tsx";
-import { Methodology } from "./pages/Methodology.tsx";
-import type { OverlayKey } from "./components/statusColors.ts";
-import { readableDateTime, percentFromBp, statusLabel } from "./format.ts";
-import "./App.css";
+/**
+ * Cascarón de la aplicación.
+ *
+ * Diseño y maquetación: Mireyamd y Ximenacode (Mireyamd/Dashboard_Wambort,
+ * src/App.tsx). Aquí se conectó a la carga y verificación reales: el bundle
+ * pasa por loadAndVerify (src/bundle/contract.ts, que usa src/verify) y solo
+ * si verifica llega al diseño a través de toExplorer.
+ */
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { BookOpen, ShieldCheck, ChevronLeft, TriangleAlert } from 'lucide-react'
+import {
+  loadAndVerify,
+  releaseBundle,
+  type LoadedBundle,
+} from './bundle/contract.ts'
+import { toExplorer, type ExplorerCell } from './adapters/toExplorer.ts'
+import { MapExplorer } from './components/MapExplorer.tsx'
+import { BrandLogo } from './components/BrandLogo'
+import { FloatingNavigation } from './components/FloatingNavigation'
+import { EvidenceCard, EvidenceDetails } from './components/Evidence'
+import { Methodology } from './pages/Methodology.tsx'
+import { readableDateTime } from './format.ts'
+import './App.css'
+import './styles/mireya/theme.css'
+import './styles/mireya/brand.css'
+import './styles/mireya/navigation.css'
+import './styles/mireya/header.css'
+import './styles/integration.css'
 
-/** Vista activa. Sin react-router: una sola pantalla con dos modos. */
-type View = "mapa" | "metodologia";
+type View = 'map' | 'evidence' | 'methodology'
 
 // Rutas relativas a la base del despliegue. En GitHub Pages el sitio vive en
 // /wombat-dashboard/, así que una ruta absoluta como "/dashboard.config.json"
 // da 404. import.meta.env.BASE_URL vale "/" en dev y "./" en el build.
-const CONFIG_URL = `${import.meta.env.BASE_URL}dashboard.config.json`;
-
-const OVERLAY_LABELS: Record<OverlayKey, string> = {
-  t1: "T1",
-  t2: "T2",
-  delta: "Delta",
-};
+const CONFIG_URL = `${import.meta.env.BASE_URL}dashboard.config.json`
 
 interface BundleEntry {
-  aoi: string;
-  version: string;
-  source: string;
+  aoi: string
+  version: string
+  source: string
   /**
-   * Claves públicas pinneadas, como cadenas "ed25519:<hex>".
-   *
-   * Este es el formato de dashboard.config.json y el que consume
-   * scripts/sync-data.mjs, que es el verificador autoritativo del bundle.
+   * Claves públicas pinneadas, como cadenas "ed25519:<hex>": el formato de
+   * dashboard.config.json y el que consume scripts/sync-data.mjs.
    */
-  issuers: string[];
+  issuers: string[]
+}
+
+interface Config {
+  bundles: BundleEntry[]
 }
 
 /** Roles que se conceden a una clave pinneada, igual que en sync-data.mjs. */
-const PINNED_ROLES = ["change", "context", "risk", "action"];
+const PINNED_ROLES = ['change', 'context', 'risk', 'action']
 
 /**
  * Insignia de procedencia, derivada del bloque `change` FIRMADO, nunca del
  * manifiesto: si los dos discrepan, contract.ts lo expone como
  * integrityWarning y la insignia sigue al dato firmado.
  */
-function originBadge(
-  dataOrigin: string,
-  maturity: string,
-): { className: string; text: string } {
-  if (dataOrigin === "nisar_real") {
-    return { className: "banner real", text: `NISAR real · ${maturity}` };
-  }
-  if (dataOrigin === "simulated") {
-    return {
-      className: "banner simulated",
-      text: "SIMULATED — fixture de desarrollo, no es un AOI real",
-    };
-  }
-  return {
-    className: "banner maturity",
-    text: `Procedencia sin clasificar: ${dataOrigin} · ${maturity}`,
-  };
-}
-
-interface Config {
-  bundles: BundleEntry[];
+function originBadge(dataOrigin: string, maturity: string): string {
+  if (dataOrigin === 'nisar_real') return `NISAR real · ${maturity}`
+  if (dataOrigin === 'simulated')
+    return 'SIMULATED — fixture de desarrollo, no es un AOI real'
+  return `Procedencia sin clasificar: ${dataOrigin} · ${maturity}`
 }
 
 function abbrIssuer(issuer: string): string {
-  const hex = issuer.replace("ed25519:", "");
-  return `${hex.slice(0, 12)}…${hex.slice(-8)}`;
+  const hex = issuer.replace('ed25519:', '')
+  return `${hex.slice(0, 12)}…${hex.slice(-8)}`
 }
 
 export default function App() {
-  const [config, setConfig] = useState<Config | null>(null);
-  const [bundle, setBundle] = useState<LoadedBundle | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [overlay, setOverlay] = useState<OverlayKey>("delta");
-  const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
-  const [selectedBundle, setSelectedBundle] = useState<BundleEntry | null>(null);
-  const [view, setView] = useState<View>("mapa");
-  const abortRef = useRef<AbortController | null>(null);
+  const [config, setConfig] = useState<Config | null>(null)
+  const [bundle, setBundle] = useState<LoadedBundle | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedBundle, setSelectedBundle] = useState<BundleEntry | null>(null)
+  const [view, setView] = useState<View>('map')
+  const [selected, setSelected] = useState<ExplorerCell | null>(null)
+  const [compare, setCompare] = useState(false)
+  const [controls, setControls] = useState(false)
+  const [priorityOpen, setPriorityOpen] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
 
   // ── 1. Cargar configuración de bundles ───────────────────────────────
   useEffect(() => {
-    let cancelled = false;
-    fetch(CONFIG_URL, { cache: "no-store" })
+    let cancelled = false
+    fetch(CONFIG_URL, { cache: 'no-store' })
       .then((r) => {
-        if (!r.ok) throw new Error(`No se pudo leer ${CONFIG_URL}`);
-        return r.json() as Promise<Config>;
+        if (!r.ok) throw new Error(`No se pudo leer ${CONFIG_URL}`)
+        return r.json() as Promise<Config>
       })
       .then((data) => {
         if (!cancelled) {
-          setConfig(data);
-          if (data.bundles.length > 0) {
-            setSelectedBundle(data.bundles[0]);
-          }
+          setConfig(data)
+          if (data.bundles.length > 0) setSelectedBundle(data.bundles[0])
         }
       })
       .catch((cause) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
-      });
+        if (!cancelled)
+          setError(cause instanceof Error ? cause.message : String(cause))
+      })
     return () => {
-      cancelled = true;
-    };
-  }, []);
+      cancelled = true
+    }
+  }, [])
 
-  // ── 2. Cargar bundle cuando cambia la selección de AOI ───────────────
+  // ── 2. Cargar y VERIFICAR el bundle cuando cambia el AOI ─────────────
   useEffect(() => {
-    if (!config || !selectedBundle) return;
+    if (!config || !selectedBundle) return
 
-    // Abort carga anterior al cambiar de AOI
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
 
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    setSelected(null)
 
-    const base = `${import.meta.env.BASE_URL}bundles/${selectedBundle.aoi}/${selectedBundle.version}`;
-    // Las entradas de dashboard.config.json son cadenas de clave pública.
-    // Se les concede el mismo conjunto de roles que en sync-data.mjs; los roles
-    // NO se leen del trusted-issuers.json que viaja dentro del bundle, porque
-    // entonces el bundle declararía sus propios permisos.
+    const base = `${import.meta.env.BASE_URL}bundles/${selectedBundle.aoi}/${selectedBundle.version}`
+    // Los roles NO se leen del trusted-issuers.json que viaja dentro del
+    // bundle, porque entonces el bundle declararía sus propios permisos.
     const issuers = selectedBundle.issuers.map((pubkey) => ({
       issuer: pubkey,
       roles: PINNED_ROLES,
-    }));
+    }))
 
     loadAndVerify(base, issuers, undefined, controller.signal)
       .then((b) => {
         if (!cancelled && !controller.signal.aborted) {
-          setBundle(b);
-          setLoading(false);
+          setBundle(b)
+          setLoading(false)
         }
       })
       .catch((cause) => {
         if (!cancelled && !controller.signal.aborted) {
-          if (cause instanceof DOMException && cause.name === "AbortError") return;
-          setLoading(false);
-          setError(cause instanceof Error ? cause.message : String(cause));
+          if (cause instanceof DOMException && cause.name === 'AbortError')
+            return
+          setLoading(false)
+          setError(cause instanceof Error ? cause.message : String(cause))
         }
-      });
+      })
 
     return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [selectedBundle, config]);
+      cancelled = true
+      controller.abort()
+    }
+  }, [selectedBundle, config])
 
-  // ── 3. Liberar blobs al desmontar bundle ─────────────────────────────
+  // ── 3. Liberar blobs al descartar un bundle ──────────────────────────
   useEffect(() => {
     return () => {
-      if (bundle) releaseBundle(bundle);
-    };
-  }, [bundle]);
+      if (bundle) releaseBundle(bundle)
+    }
+  }, [bundle])
 
-  // ── 4. Metodología: no depende del bundle, se lee siempre ────────────
-  if (view === "metodologia") {
-    return <Methodology onBack={() => setView("mapa")} />;
-  }
+  // El adaptador solo traduce; se memoiza para no reconstruir el mapa.
+  const explorer = useMemo(() => (bundle ? toExplorer(bundle) : null), [bundle])
 
-  // ── 5. Estados de error y carga ──────────────────────────────────────
-  if (!config) {
-    return (
-      <div className="loading">
-        <p>Cargando configuración…</p>
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="error">
-        <h2>No se pudo cargar el bundle</h2>
-        <p>{error}</p>
-        <button onClick={() => window.location.reload()}>Reintentar</button>
-        <button type="button" onClick={() => setView("metodologia")}>
-          Ver metodología
-        </button>
-      </div>
-    );
-  }
-  if (!selectedBundle) {
-    return (
-      <div className="loading">
-        <p>Seleccionando área de interés…</p>
-      </div>
-    );
-  }
-  if (loading || !bundle) {
-    return (
-      <div className="loading">
-        <p>Verificando y cargando el bundle…</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    // Bring explicitly requested evidence into view, including on narrow screens.
+    if (view === 'evidence')
+      document
+        .querySelector<HTMLButtonElement>(
+          '.evidence-details .evidence-top button, .evidence-empty button',
+        )
+        ?.focus()
+  }, [view])
 
-  // ── 6. Render principal ──────────────────────────────────────────────
-  const top3 = bundle.actions.slice(0, 3);
-  const badge = originBadge(bundle.dataOrigin, bundle.manifest.maturity);
-  const highCount = bundle.cells.filter((c) => c.status === "review_high").length;
-  const mediumCount = bundle.cells.filter((c) => c.status === "review_medium").length;
-  const lowCount = bundle.cells.filter((c) => c.status === "review_low").length;
-  const insufficientCount = bundle.cells.filter((c) => c.status === "insufficient_quality").length;
-  const issuerAbbr = abbrIssuer(selectedBundle.issuers[0]);
+  const showMap = !loading && !error && bundle !== null && explorer !== null
+  const verification = bundle?.verification
+  const verified =
+    verification !== undefined &&
+    verification.filesOk &&
+    verification.blocksOk &&
+    verification.chainOk &&
+    verification.issuersOk
 
   return (
-    <div className="app">
-      <div className={badge.className}>
-        {badge.text} · {bundle.manifest.aoiName}
-      </div>
-      <header className="toolbar">
-        <label htmlFor="aoi-selector">
-          Área de interés:
-          <select
-            id="aoi-selector"
-            value={`${selectedBundle.aoi}/${selectedBundle.version}`}
-            onChange={(e) => {
-              const [aoi, version] = e.target.value.split("/");
-              const entry = config.bundles.find((b) => b.aoi === aoi && b.version === version);
-              if (entry) setSelectedBundle(entry);
-            }}
-          >
-            {config.bundles.map((b) => (
-              <option key={`${b.aoi}/${b.version}`} value={`${b.aoi}/${b.version}`}>
-                {b.aoi} / {b.version}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Overlay:
-          <select
-            value={overlay}
-            onChange={(e) => setOverlay(e.target.value as OverlayKey)}
-          >
-            {Object.entries(OVERLAY_LABELS).map(([key, label]) => (
-              <option key={key} value={key as OverlayKey}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="meta">
-          {bundle.manifest.aoiName} · {bundle.bundleVersion} ·
-          {readableDateTime(bundle.verification.asOf)} · instantánea
-        </span>
-        <button
-          className="view-toggle"
-          type="button"
-          onClick={() => setView("metodologia")}
+    <div className="app-shell">
+      <header className="app-header">
+        <a
+          className="brand"
+          href="#explorer"
+          onClick={() => setView('map')}
+          aria-label="WOMBAT Explorer, inicio"
         >
-          Metodología
-        </button>
-      </header>
-      <div className="mapa">
-        <MapView
-          bundle={bundle}
-          overlay={overlay}
-          selectedCellId={selectedCellId}
-          onSelectCell={setSelectedCellId}
-        />
-      </div>
-      <aside className="panel">
-        {/* Panel de integridad, visible sin hacer clic */}
-        <div className="integrity-panel">
-          <p className="integrity-line">
-            Verificado: {bundle.verification.blocksChecked} bloques firmados por
-            <span className="issuer-abbr">{issuerAbbr}</span> ·
-            bundle {bundle.aoiId}/{bundle.bundleVersion} ·
-            instantánea {readableDateTime(bundle.verification.asOf)} ·
-            contrato {bundle.contractVersion}
-          </p>
-          <button className="verify-how" type="button" aria-expanded="false">
-            ¿Cómo se verificó?
-          </button>
-          <div className="verify-how-detail" hidden>
-            <ol>
-              <li>sha256 de cada archivo contra index.json.</li>
-              <li>Firma Ed25519 de cada bloque con la clave fijada en dashboard.config.json.</li>
-              <li>Cadena de padres: cada bloque apunta a padres presentes.</li>
-              <li>TTL contra la fecha de la instantánea (generated_at), no contra el reloj.</li>
-            </ol>
-          </div>
-          {bundle.integrityWarning && (
-            <div className="integrity-warning">
-              ⚠ {bundle.integrityWarning}
-            </div>
+          <BrandLogo />
+        </a>
+        <div className="header-context">
+          <span className="subtitle">Preparación ante El Niño</span>
+          <span className="study-area-metadata">
+            {showMap ? explorer.aoiName : 'Orden de revisión sugerido'}
+          </span>
+        </div>
+        <div className="header-actions">
+          {showMap && verification && (
+            <span
+              className={`integrity-chip ${verified ? 'integrity-ok' : 'integrity-bad'}`}
+              title="Hash SHA-256 y firma Ed25519 de cada bloque, comprobados en este navegador"
+            >
+              <ShieldCheck size={14} />
+              {verified
+                ? `${verification.blocksChecked} bloques firmados verificados`
+                : 'Verificación con problemas'}
+            </span>
           )}
-        </div>
-
-        <h2>Top 3 — orden de revisión sugerido</h2>
-        <p>
-          Madurez: <strong>{bundle.manifest.maturity}</strong> ·
-          Intervalo: {readableDateTime(bundle.t1)} → {readableDateTime(bundle.t2)} ·
-          OPERA derivado de Sentinel-1 ({bundle.manifest.operaDerivedFrom})
-        </p>
-        <ul>
-          {top3.map((action) => {
-            const cell = bundle.cells.find((c) => c.cellId === action.cellId);
-            return (
-              <li key={action.cellId}>
-                <strong>#{action.rank} {action.cellId}</strong> —
-                {statusLabel(cell ? cell.status : "insufficient_quality")}
-                {cell && cell.scoreBp !== null ? ` (${percentFromBp(cell.scoreBp)})` : ""}
-                <p className="explanation">{cell ? cell.explanation.join(" ") : ""}</p>
-              </li>
-            );
-          })}
-        </ul>
-        <div className="status-summary">
-          <span>{highCount} revisar primero</span>
-          <span>{mediumCount} revisar después</span>
-          <span>{lowCount} sin prioridad</span>
-          <span>{insufficientCount} datos insuficientes</span>
-        </div>
-        <p className="attribution">
-          © OpenStreetMap contributors
-        </p>
-      </aside>
-      {selectedCellId && (
-        <div className="cell-info">
-          <button className="close" onClick={() => setSelectedCellId(null)}>
-            ×
+          {showMap && (
+            <span className={`data-badge origin-${bundle.dataOrigin}`}>
+              {originBadge(bundle.dataOrigin, bundle.manifest.maturity)}
+            </span>
+          )}
+          {config && selectedBundle && (
+            <label className="aoi-picker">
+              <select
+                id="aoi-selector"
+                aria-label="Área de interés"
+                value={`${selectedBundle.aoi}/${selectedBundle.version}`}
+                onChange={(e) => {
+                  const [aoi, version] = e.target.value.split('/')
+                  const entry = config.bundles.find(
+                    (b) => b.aoi === aoi && b.version === version,
+                  )
+                  if (entry) setSelectedBundle(entry)
+                }}
+              >
+                {config.bundles.map((b) => (
+                  <option
+                    key={`${b.aoi}/${b.version}`}
+                    value={`${b.aoi}/${b.version}`}
+                  >
+                    {b.aoi} / {b.version}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button
+            aria-label={
+              view === 'methodology' ? 'Volver al mapa' : 'Abrir la metodología'
+            }
+            className={view === 'methodology' ? 'active' : ''}
+            onClick={() =>
+              setView(view === 'methodology' ? 'map' : 'methodology')
+            }
+          >
+            <BookOpen size={15} /> <span>Metodología</span>
           </button>
-          <p>Celda: {selectedCellId}</p>
         </div>
-      )}
+      </header>
+      <div className="workspace">
+        <main
+          className={`main-workspace ${view === 'evidence' ? 'detail-view' : ''}`}
+        >
+          {view !== 'methodology' && !config && !error && (
+            <section className="panel evidence-empty" role="status">
+              <p>Cargando configuración…</p>
+            </section>
+          )}
+          {view !== 'methodology' && config && loading && !error && (
+            <section className="panel evidence-empty" role="status">
+              <ShieldCheck size={25} />
+              <p>Verificando y cargando el bundle…</p>
+            </section>
+          )}
+          {view !== 'methodology' && error && (
+            <section className="panel evidence-empty" role="alert">
+              <TriangleAlert size={25} />
+              <h2>No se pudo cargar el bundle</h2>
+              <p>{error}</p>
+              <button
+                className="primary-button"
+                onClick={() => window.location.reload()}
+              >
+                Reintentar
+              </button>
+            </section>
+          )}
+          {showMap && (
+            <>
+              <FloatingNavigation
+                active={
+                  view === 'methodology'
+                    ? 'guide'
+                    : view === 'evidence'
+                      ? 'evidence'
+                      : controls
+                        ? 'layers'
+                        : 'explore'
+                }
+                onNavigate={(destination) => {
+                  setPriorityOpen(false)
+                  if (destination === 'layers') {
+                    setView('map')
+                    setControls((value) => !value)
+                  } else {
+                    setControls(false)
+                    setView(
+                      destination === 'guide'
+                        ? 'methodology'
+                        : destination === 'evidence'
+                          ? 'evidence'
+                          : 'map',
+                    )
+                  }
+                }}
+              />
+              <MapExplorer
+                hidden={view === 'methodology'}
+                bundle={explorer}
+                selected={selected}
+                onSelect={setSelected}
+                compare={compare && view === 'map'}
+                onCompare={() => setCompare(!compare)}
+                controls={controls && view === 'map'}
+                onControls={() => {
+                  setControls((value) => !value)
+                  setPriorityOpen(false)
+                }}
+                priorityOpen={priorityOpen && view === 'map'}
+                onPriority={() => {
+                  setPriorityOpen((value) => !value)
+                  setControls(false)
+                }}
+              />
+              {view === 'map' && selected && (
+                <EvidenceCard
+                  cell={selected}
+                  before={explorer.before.date}
+                  after={explorer.after.date}
+                  onClose={() => setSelected(null)}
+                  onExpand={() => setView('evidence')}
+                />
+              )}
+              {view === 'evidence' && !selected && (
+                <section className="panel evidence-empty" role="status">
+                  <ShieldCheck size={25} />
+                  <h2>No hay una celda seleccionada</h2>
+                  <p>
+                    Elige una celda en el mapa o una del orden de revisión
+                    sugerido para ver su evidencia.
+                  </p>
+                  <button
+                    className="primary-button"
+                    onClick={() => setView('map')}
+                  >
+                    Explorar el mapa
+                  </button>
+                </section>
+              )}
+              {view === 'evidence' && selected && (
+                <>
+                  <button className="back-map" onClick={() => setView('map')}>
+                    <ChevronLeft size={15} /> Volver al mapa
+                  </button>
+                  <EvidenceDetails
+                    cell={selected}
+                    onClose={() => setView('map')}
+                  />
+                </>
+              )}
+            </>
+          )}
+          {view === 'methodology' && (
+            <Methodology onBack={() => setView('map')} />
+          )}
+        </main>
+      </div>
+      <footer className="app-footer">
+        {/* Insignia de integridad: refleja el resultado real de la verificación. */}
+        {showMap && verification ? (
+          <span
+            className={`integrity-line ${verified ? 'integrity-ok' : 'integrity-bad'}`}
+          >
+            <ShieldCheck size={12} />{' '}
+            {verified ? 'Verificado' : 'Verificación con problemas'}:{' '}
+            {verification.blocksChecked} bloques firmados por{' '}
+            {selectedBundle ? abbrIssuer(selectedBundle.issuers[0]) : ''} ·
+            bundle {bundle.aoiId}/{bundle.bundleVersion} · instantánea{' '}
+            {readableDateTime(verification.asOf)} · contrato{' '}
+            {bundle.contractVersion}
+            {!verification.ttlOk && ' · hay bloques fuera de vigencia'}
+            {bundle.integrityWarning && ` · ⚠ ${bundle.integrityWarning}`}
+          </span>
+        ) : (
+          <span className="integrity-line">
+            <ShieldCheck size={12} />{' '}
+            {error ? 'Bundle no verificado' : 'Verificando el bundle…'}
+          </span>
+        )}
+        <span>
+          Orden de revisión sugerido para preparación · No es un pronóstico ·
+          © OpenStreetMap contributors
+        </span>
+      </footer>
     </div>
-  );
+  )
 }

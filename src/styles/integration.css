@@ -1,0 +1,176 @@
+/*
+ * Estilos de integración: lo mínimo que el diseño de Mireya/Ximena no traía
+ * porque su demo tenía un solo AOI y ninguna verificación real.
+ * Los estilos del diseño viven en src/App.css y src/styles/mireya/.
+ */
+
+/* Selector de área de interés en la cabecera. */
+.aoi-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted, #b2baa0);
+}
+.aoi-picker select {
+  font: inherit;
+  color: var(--text-primary, #eef5ff);
+  background: transparent;
+  border: 1px solid var(--border, rgba(213, 219, 169, 0.27));
+  border-radius: 5px;
+  padding: 5px 8px;
+}
+.aoi-picker select option {
+  color: #14213c;
+}
+
+/* Insignia de procedencia: el dato real se distingue del fixture simulado. */
+.data-badge.origin-nisar_real {
+  color: #78ddad;
+  border-color: #78ddad88;
+}
+
+/* Insignia de integridad en el pie. */
+.app-footer .integrity-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.app-footer .integrity-ok {
+  color: #78ddad;
+}
+.app-footer .integrity-bad {
+  color: #f0c28b;
+}
+
+/* Cadena de evidencia: hash y estado de firma de cada bloque. */
+.wonb-sections code {
+  font-size: 10px;
+  word-break: break-all;
+}
+.wonb-sections .verification-status {
+  display: inline-flex;
+  margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .aoi-picker > span {
+    display: none;
+  }
+}
+
+/* Insignia de integridad en la cabecera: la propuesta de confianza, a la vista. */
+.integrity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.integrity-chip.integrity-ok {
+  color: #78ddad;
+  background: #14213ce6;
+}
+.integrity-chip.integrity-bad {
+  color: #f0c28b;
+  background: #14213ce6;
+}
+.app-footer {
+  font-size: 11px;
+}
+
+/* La leyenda tiene cuatro estados: sin barra de desplazamiento. */
+.map-legend {
+  max-height: none;
+  overflow: visible;
+}
+
+/* La escala no debe quedar debajo de la barra de observaciones. */
+.map-explorer .maplibregl-ctrl-bottom-left {
+  bottom: 92px;
+}
+
+@media (max-width: 1100px) {
+  .integrity-chip {
+    display: none;
+  }
+}
+
+/* La cabecera flota sobre el mapa: el contexto necesita fondo para leerse. */
+.header-context {
+  flex-wrap: nowrap;
+  background: rgba(20, 33, 60, 0.82);
+  padding: 7px 12px;
+  border-radius: 10px;
+}
+.header-context .subtitle {
+  white-space: nowrap;
+}
+.study-area-metadata {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* El detalle y el botón de volver no deben quedar debajo de la cabecera. */
+.evidence-details {
+  top: calc(var(--header-clearance, 84px) + 8px);
+}
+.back-map {
+  left: 88px;
+}
+
+/* Con una celda seleccionada, la ficha ocupa el lado derecho: la leyenda cede. */
+.map-explorer.has-selection .map-legend {
+  display: none;
+}
+
+/* Fechas reales del par de observaciones en la ficha. */
+.observation-pair {
+  margin: 12px 0 4px;
+  font-size: 11px;
+  color: var(--text-primary, #eef5ff);
+}
+.observation-pair span {
+  font-size: 9px;
+  letter-spacing: 0.4px;
+  color: var(--muted, #b2baa0);
+}
+
+/*
+ * Ficha de celda (panel derecho). El diseño la pensó para ids cortos de demo
+ * ("PIU-001"): con ids reales el título se partía y el contenido quedaba
+ * cortado. Más ancha, usa todo el alto disponible y lleva el porqué arriba.
+ */
+.evidence-card {
+  width: 384px;
+  max-height: calc(100% - var(--header-clearance, 94px) - 24px);
+}
+.evidence-card .evidence-identity h2 {
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.evidence-card .explanation p,
+.evidence-details .detail-section > p {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-primary, #eef5ff);
+}
+.evidence-card .expanded-metrics > div {
+  padding: 8px 10px;
+  gap: 4px;
+}
+.evidence-card .expanded-metrics dd {
+  font-size: 17px;
+}
+.evidence-card .expanded-metrics dd.text-metric {
+  font-size: 11px;
+}
+.evidence-card .provenance-mini {
+  color: #78ddad;
+}

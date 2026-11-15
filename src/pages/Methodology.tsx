@@ -174,7 +174,7 @@ export function Methodology({ onBack }: { onBack: () => void }) {
           <h2>Una guía para investigar. El juicio humano decide.</h2>
           <p>
             WOMBAT ayuda a priorizar revisiones en campo como parte de la
-            preparación. No predice inundaciones ni emite alertas de emergencia.
+            preparación. No predice inundaciones ni sustituye a los avisos oficiales de emergencia.
             Cuando el bundle declara <code>data_origin: simulated</code>, el
             dashboard lo muestra en pantalla y esa evidencia no debe usarse para
             decisiones operativas.

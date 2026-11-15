@@ -1,3 +1,15 @@
+/**
+ * Mapa del Explorer.
+ *
+ * Diseño y maquetación: Mireyamd y Ximenacode (Mireyamd/Dashboard_Wambort,
+ * src/components/MapExplorer.tsx). Aquí se conectó al bundle verificado:
+ *
+ * - Los rásteres t1, t2 y delta son los PNG del bundle, ya verificados.
+ * - Las celdas, su estado y su puesto salen de los bloques `risk` firmados.
+ * - NO hay teselas remotas: el diseño original pedía imágenes satelitales a un
+ *   servidor externo, y el dashboard tiene que funcionar estático y sin red.
+ *   El fondo es un color y encima van los bytes del bundle.
+ */
 import { useEffect, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
@@ -9,12 +21,11 @@ import {
   Minus,
   Plus,
   X,
-  MapPin,
   Triangle,
   SlidersHorizontal,
 } from 'lucide-react'
-import type { CellEvidence, ExplorerBundle } from '../frontend/demoAdapter'
-import { observationImage } from '../frontend/demoAdapter'
+import type { ExplorerCell, ExplorerData } from '../adapters/toExplorer.ts'
+import { readableDate } from '../format.ts'
 import { DataStatus } from './DataStatus'
 import { MapLayerControls, type VisibleLayers } from './MapLayerControls'
 import { getMapDisplay } from '../frontend/mapDisplay'
@@ -23,11 +34,50 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 // MapLibre v6 requires Vite to bundle its worker before any map is created.
 maplibregl.setWorkerUrl(workerUrl)
 
+/** Deja libre la cabecera flotante (arriba) y la barra de observaciones (abajo). */
+const MAP_PADDING = { top: 96, bottom: 116, left: 56, right: 56 }
+
+/** Cuántas celdas del orden de revisión se destacan en el mapa y en el panel. */
+const TOP_COUNT = 3
+
+/**
+ * Rampa secuencial de un solo tono, no un semáforo: el color indica el lugar
+ * en el orden de revisión sugerido, no un nivel de peligro. Los datos
+ * insuficientes van en gris, fuera de la rampa.
+ */
+const STATUS_FILL: Record<ExplorerCell['status'], string> = {
+  review_high: '#f97532',
+  review_medium: '#f7b27a',
+  review_low: '#f3e2c4',
+  insufficient_quality: '#7c8594',
+}
+/**
+ * La opacidad también sigue el orden de revisión: lo que hay que mirar
+ * primero es lo que más se ve; lo que no tiene prioridad casi no tapa el radar.
+ */
+const FILL_OPACITY: maplibregl.ExpressionSpecification = [
+  'match',
+  ['get', 'status'],
+  'review_high',
+  0.62,
+  'review_medium',
+  0.34,
+  'review_low',
+  0.1,
+  0.3,
+]
+const STATUS_LEGEND: [ExplorerCell['status'], string][] = [
+  ['review_high', 'Revisar primero'],
+  ['review_medium', 'Revisar después'],
+  ['review_low', 'Sin prioridad de revisión'],
+  ['insufficient_quality', 'Datos insuficientes'],
+]
+
 interface Props {
   hidden: boolean
-  bundle: ExplorerBundle
-  selected: CellEvidence | null
-  onSelect: (c: CellEvidence) => void
+  bundle: ExplorerData
+  selected: ExplorerCell | null
+  onSelect: (c: ExplorerCell) => void
   compare: boolean
   onCompare: () => void
   controls: boolean
@@ -52,19 +102,19 @@ export function MapExplorer({
   const maps = useRef<maplibregl.Map[]>([])
   const selectRef = useRef(onSelect)
   const [ready, setReady] = useState(0),
-    [mapError, setMapError] = useState(false),
-    [connection, setConnection] = useState(false)
+    [mapError, setMapError] = useState(false)
   const [layers, setLayers] = useState<VisibleLayers>({
     change: true,
     water: true,
     grid: true,
   })
   const [split, setSplit] = useState(50),
-    [opacity, setOpacity] = useState(78)
+    [opacity, setOpacity] = useState(60)
   const popover = useRef<HTMLDivElement>(null)
   const priorityTrigger = useRef<HTMLButtonElement>(null)
   const [legendOpen, setLegendOpen] = useState(true)
-  const [emptyCell, setEmptyCell] = useState(false)
+  const top = bundle.ranked.slice(0, TOP_COUNT)
+  const [west, south, east, north] = bundle.bounds
   useEffect(() => {
     if (!controls && !priorityOpen) return
     const close = () => {
@@ -111,66 +161,64 @@ export function MapExplorer({
         ui.getPropertyValue('--selected-halo').trim() || '#FFF8EA'
       const mapBackground =
         ui.getPropertyValue('--map-background').trim() || '#14213c'
+      const [w, s, e, n] = bundle.bounds
+      const topCells = bundle.ranked.slice(0, TOP_COUNT)
       const makeMap = (container: HTMLDivElement, before: boolean) => {
         const map = new maplibregl.Map({
           container,
-          ...bundle.initialView,
+          bounds: [
+            [w, s],
+            [e, n],
+          ],
+          fitBoundsOptions: { padding: MAP_PADDING },
           minZoom: 8,
           maxZoom: 17,
-          attributionControl: { compact: true },
+          attributionControl: false,
           style: {
             version: 8,
-            sources: {
-              satellite: {
-                type: 'raster',
-                tiles: [
-                  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                ],
-                tileSize: 256,
-                attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
-              },
-            },
+            sources: {},
             layers: [
               {
                 id: 'background',
                 type: 'background',
                 paint: { 'background-color': mapBackground },
               },
-              {
-                id: 'satellite',
-                type: 'raster',
-                source: 'satellite',
-                paint: {
-                  'raster-saturation': -0.35,
-                  'raster-brightness-max': 0.76,
-                },
-              },
             ],
           },
-        })
-        map.on('error', () => {
-          if (!disposed) setConnection(true)
         })
         map.on('load', () => {
           if (disposed) return
           const coords = bundle.coordinates
-          for (const [id, data] of Object.entries({
-            grid: bundle.grid,
-            priority: bundle.priorityGeo,
-            boundary: bundle.boundary,
-            water: bundle.water,
-          }))
-            map.addSource(id, { type: 'geojson', data })
-          map.addSource('t1', {
-            type: 'image',
-            url: observationImage(false),
-            coordinates: coords,
+          map.addSource('grid', { type: 'geojson', data: bundle.grid })
+          map.addSource('roads', {
+            type: 'geojson',
+            data: bundle.roads as GeoJSON.FeatureCollection,
           })
-          map.addSource('t2', {
-            type: 'image',
-            url: observationImage(true),
-            coordinates: coords,
+          map.addSource('boundary', {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'Polygon',
+                coordinates: [
+                  [
+                    [w, s],
+                    [e, s],
+                    [e, n],
+                    [w, n],
+                    [w, s],
+                  ],
+                ],
+              },
+            },
           })
+          for (const id of ['t1', 't2', 'delta'] as const)
+            map.addSource(id, {
+              type: 'image',
+              url: bundle.overlays[id],
+              coordinates: coords,
+            })
           map.addLayer({
             id: 't1',
             type: 'raster',
@@ -191,26 +239,40 @@ export function MapExplorer({
           })
           map.addLayer({
             id: 'change',
+            type: 'raster',
+            source: 'delta',
+            paint: {
+              'raster-opacity': before ? 0 : 0.6,
+              'raster-fade-duration': 0,
+            },
+          })
+          map.addLayer({
+            id: 'grid-fill',
             type: 'fill',
-            source: 'priority',
+            source: 'grid',
             paint: {
               'fill-color': [
-                'case',
-                ['>', ['get', 'magnitude'], 0],
-                '#f97532',
-                '#29b6d6',
+                'match',
+                ['get', 'status'],
+                'review_high',
+                STATUS_FILL.review_high,
+                'review_medium',
+                STATUS_FILL.review_medium,
+                'review_low',
+                STATUS_FILL.review_low,
+                STATUS_FILL.insufficient_quality,
               ],
-              'fill-opacity': before ? 0 : 0.6,
+              'fill-opacity': before ? 0 : FILL_OPACITY,
             },
           })
           map.addLayer({
             id: 'water',
             type: 'line',
-            source: 'water',
+            source: 'roads',
             paint: {
-              'line-color': '#50c5d4',
-              'line-width': 6,
-              'line-opacity': 0.7,
+              'line-color': '#9fd8e0',
+              'line-width': 0.7,
+              'line-opacity': 0.45,
             },
           })
           map.addLayer({
@@ -219,15 +281,9 @@ export function MapExplorer({
             source: 'grid',
             paint: {
               'line-color': '#c8dfbd',
-              'line-width': 0.65,
-              'line-opacity': 0.42,
+              'line-width': 0.5,
+              'line-opacity': 0.22,
             },
-          })
-          map.addLayer({
-            id: 'grid-hit',
-            type: 'fill',
-            source: 'grid',
-            paint: { 'fill-opacity': 0 },
           })
           map.addLayer({
             id: 'boundary',
@@ -242,14 +298,19 @@ export function MapExplorer({
           map.addLayer({
             id: 'priority',
             type: 'line',
-            source: 'priority',
-            paint: { 'line-color': '#fff0c2', 'line-width': 2 },
+            source: 'grid',
+            filter: [
+              'in',
+              ['get', 'id'],
+              ['literal', topCells.map((cell) => cell.id)],
+            ],
+            paint: { 'line-color': '#fff0c2', 'line-width': 2.5 },
           })
           map.addLayer({
             id: 'selected-halo',
             type: 'line',
-            source: 'priority',
-            filter: ['==', 'id', ''],
+            source: 'grid',
+            filter: ['==', ['get', 'id'], ''],
             paint: {
               'line-color': selectionCream,
               'line-width': 6,
@@ -259,27 +320,22 @@ export function MapExplorer({
           map.addLayer({
             id: 'selected',
             type: 'line',
-            source: 'priority',
-            filter: ['==', 'id', ''],
+            source: 'grid',
+            filter: ['==', ['get', 'id'], ''],
             paint: { 'line-color': selectionCoral, 'line-width': 2.5 },
           })
           map.addLayer({
             id: 'hit-area',
             type: 'fill',
-            source: 'priority',
+            source: 'grid',
             paint: { 'fill-opacity': 0 },
           })
-          map.on('click', (e) => {
-            const features = map.queryRenderedFeatures(e.point, {
-              layers: ['hit-area', 'grid-hit'],
-            })
-            const id = features.find((f) => f.layer.id === 'hit-area')
-              ?.properties?.id
-            const c = bundle.cells.find((c) => c.id === id)
-            if (c) {
-              setEmptyCell(false)
-              selectRef.current(c)
-            } else if (features.length) setEmptyCell(true)
+          map.on('click', (event) => {
+            const id = map.queryRenderedFeatures(event.point, {
+              layers: ['hit-area'],
+            })[0]?.properties?.id
+            const c = bundle.cells.find((cell) => cell.id === id)
+            if (c) selectRef.current(c)
           })
           map.on('mouseenter', 'hit-area', () => {
             map.getCanvas().style.cursor = 'pointer'
@@ -288,12 +344,22 @@ export function MapExplorer({
             map.getCanvas().style.cursor = ''
           })
           if (!before)
-            for (const cell of bundle.cells) {
+            for (const cell of topCells) {
               const el = document.createElement('button')
               el.className = 'cell-marker'
-              el.textContent = cell.id
-              el.setAttribute('aria-label', `Select cell ${cell.id}`)
-              el.onclick = () => selectRef.current(cell)
+              el.textContent = `#${cell.rank}`
+              el.setAttribute(
+                'aria-label',
+                `Seleccionar la celda ${cell.id}, puesto ${cell.rank}`,
+              )
+              // El marcador está desplazado respecto de su celda: si el clic
+              // llegara al mapa, seleccionaría la celda que queda debajo.
+              for (const type of ['mousedown', 'mouseup', 'pointerdown'])
+                el.addEventListener(type, (event) => event.stopPropagation())
+              el.onclick = (event) => {
+                event.stopPropagation()
+                selectRef.current(cell)
+              }
               markers.push(
                 new maplibregl.Marker({
                   element: el,
@@ -342,6 +408,7 @@ export function MapExplorer({
         base.remove()
         before.remove()
         maps.current = []
+        setReady(0)
       }
     } catch {
       queueMicrotask(() => {
@@ -358,8 +425,8 @@ export function MapExplorer({
     if (!ready) return
     for (const [i, map] of maps.current.entries()) {
       if (!map.getLayer('selected')) continue
-      map.setFilter('selected', ['==', 'id', selected?.id ?? ''])
-      map.setFilter('selected-halo', ['==', 'id', selected?.id ?? ''])
+      map.setFilter('selected', ['==', ['get', 'id'], selected?.id ?? ''])
+      map.setFilter('selected-halo', ['==', ['get', 'id'], selected?.id ?? ''])
       const display = getMapDisplay({
         compare,
         before: i === 1,
@@ -370,22 +437,28 @@ export function MapExplorer({
       })
       map.setLayoutProperty('water', 'visibility', display.waterVisibility)
       map.setLayoutProperty('grid', 'visibility', display.gridVisibility)
-      map.setLayoutProperty('grid-hit', 'visibility', display.gridVisibility)
+      map.setLayoutProperty('grid-fill', 'visibility', display.gridVisibility)
+      map.setPaintProperty(
+        'grid-fill',
+        'fill-opacity',
+        compare ? 0 : FILL_OPACITY,
+      )
       map.setPaintProperty('t1', 'raster-opacity', display.t1Opacity)
       map.setPaintProperty('t2', 'raster-opacity', display.t2Opacity)
-      map.setPaintProperty('change', 'fill-opacity', display.changeOpacity)
+      map.setPaintProperty('change', 'raster-opacity', display.changeOpacity)
     }
   }, [ready, layers, selected, opacity, compare])
-  const select = (cell: CellEvidence) => {
-    setEmptyCell(false)
+  const select = (cell: ExplorerCell) => {
     onSelect(cell)
     if (priorityOpen) onPriority()
     maps.current[0]?.easeTo({ center: cell.center, duration: 650 })
   }
+  const pairNote =
+    bundle.mode === 'simulated' ? 'Par simulado (fixture)' : 'Par NISAR real'
   return (
     <section
       className={`map-explorer ${selected ? 'has-selection' : ''} ${hidden ? 'is-hidden' : ''}`}
-      aria-label="Piura surface change map"
+      aria-label={`Mapa de cambios en superficie: ${bundle.aoiName}`}
     >
       <div className="map-canvas" ref={baseContainer} />
       <div
@@ -401,34 +474,19 @@ export function MapExplorer({
         <div className="map-fallback">
           <DataStatus
             kind="connection"
-            title="Interactive map unavailable"
-            detail="WebGL could not initialize. Select a fixture cell below to explore its evidence."
+            title="El mapa interactivo no está disponible"
+            detail="WebGL no pudo iniciarse. Elige una celda de la lista para ver su evidencia."
           />
-          {bundle.cells.map((c) => (
+          {top.map((c) => (
             <button key={c.id} onClick={() => select(c)}>
-              {c.id} · Rank {c.rank}
+              {c.id} · Puesto {c.rank}
             </button>
           ))}
         </div>
       )}
       {!ready && !mapError && (
         <div className="map-loading" role="status">
-          Loading interactive map…
-        </div>
-      )}
-      {emptyCell && (
-        <div className="empty-cell panel">
-          <DataStatus
-            kind="empty"
-            title="No evidence available for this cell"
-            detail="This demo contains evidence for PIU-001, PIU-002 and PIU-003 only."
-          />
-          <button
-            onClick={() => setEmptyCell(false)}
-            aria-label="Dismiss missing evidence message"
-          >
-            <X size={14} />
-          </button>
+          Cargando el mapa…
         </div>
       )}
       <div className="map-topline">
@@ -439,7 +497,7 @@ export function MapExplorer({
             disabled={!bundle.compatible}
           >
             <ArrowLeftRight size={15} />
-            {compare ? 'Exit comparison' : 'Compare observations'}
+            {compare ? 'Salir de la comparación' : 'Comparar observaciones'}
           </button>
         </div>
       </div>
@@ -447,20 +505,20 @@ export function MapExplorer({
         <div className="incompatible">
           <DataStatus
             kind="incompatible"
-            title="Incompatible observations"
-            detail="Before and after observations cannot be compared."
+            title="Observaciones no comparables"
+            detail="Las observaciones de antes y después no se pueden comparar."
           />
         </div>
       )}
       <button
         ref={priorityTrigger}
         className="priority-toggle"
-        aria-label="Toggle Top 3 priorities"
+        aria-label={`Mostrar u ocultar el top ${TOP_COUNT} del orden de revisión`}
         aria-expanded={priorityOpen}
         aria-controls="map-popovers"
         onClick={onPriority}
       >
-        <Triangle size={14} /> Top 3
+        <Triangle size={14} /> Top {TOP_COUNT}
       </button>
       {(controls || priorityOpen) && (
         <div
@@ -489,8 +547,8 @@ export function MapExplorer({
                 aria-expanded={priorityOpen}
               >
                 <span>
-                  <Triangle size={14} /> Top 3 priorities{' '}
-                  <span className="count">3</span>
+                  <Triangle size={14} /> Orden de revisión sugerido{' '}
+                  <span className="count">{top.length}</span>
                 </span>
                 {priorityOpen ? (
                   <ChevronUp size={15} />
@@ -500,8 +558,8 @@ export function MapExplorer({
               </button>
               {priorityOpen && (
                 <div className="priority-body">
-                  <p>Cells to investigate first</p>
-                  {bundle.cells.map((c) => (
+                  <p>Celdas para revisar primero en campo</p>
+                  {top.map((c) => (
                     <button
                       className={`priority-row ${selected?.id === c.id ? 'selected' : ''}`}
                       key={c.id}
@@ -511,47 +569,48 @@ export function MapExplorer({
                       <span>
                         <strong>{c.id}</strong>
                         <small>
-                          Score {c.score.toFixed(2)} ·{' '}
-                          {c.quality === 'Sufficient'
-                            ? 'Sufficient quality'
-                            : 'Low quality'}
+                          Puntaje {c.score === null ? '—' : c.score.toFixed(2)}{' '}
+                          · {c.statusLabel}
                         </small>
                       </span>
                       <span className="priority-arrow">↗</span>
                     </button>
                   ))}
                   <span className="list-note">
-                    Demo ranking · supplied by fixture
+                    Orden publicado en los bloques firmados del bundle
                   </span>
                 </div>
               )}
             </section>
           )}
           <details className="study-info panel">
-            <summary>Study area</summary>
-            <span className="section-caption">STUDY AREA</span>
-            <strong>Piura River Basin</strong>
-            <span>Surface change investigation</span>
-            <span className="study-coordinates">5.14° S &nbsp; 80.61° W</span>
+            <summary>Área de estudio</summary>
+            <span className="section-caption">ÁREA DE ESTUDIO</span>
+            <strong>{bundle.aoiName}</strong>
+            <span>Revisión de cambios en superficie</span>
+            <span className="study-coordinates">
+              {((south + north) / 2).toFixed(2)}° lat &nbsp;{' '}
+              {((west + east) / 2).toFixed(2)}° lon
+            </span>
           </details>
         </div>
       )}
       {compare && (
         <>
           <div className="comparison-label before">
-            <strong>Before (t1)</strong>
-            <span>{bundle.before.date} · Fixture</span>
+            <strong>Antes (t1)</strong>
+            <span>{readableDate(bundle.before.date)}</span>
           </div>
           <div className="comparison-label after">
-            <strong>After (t2)</strong>
-            <span>{bundle.after.date} · Fixture</span>
+            <strong>Después (t2)</strong>
+            <span>{readableDate(bundle.after.date)}</span>
           </div>
           <div
             className="compare-divider"
             style={{ left: `${split}%` }}
             role="slider"
             tabIndex={0}
-            aria-label="Drag before and after divider"
+            aria-label="Arrastra el divisor de antes y después"
             aria-valuemin={10}
             aria-valuemax={90}
             aria-valuenow={Math.round(split)}
@@ -605,7 +664,7 @@ export function MapExplorer({
           </div>
           <input
             className="compare-slider"
-            aria-label="Before and after comparison divider"
+            aria-label="Divisor de la comparación de antes y después"
             type="range"
             min="10"
             max="90"
@@ -615,24 +674,23 @@ export function MapExplorer({
         </>
       )}
       <div className="map-tools">
-        <button aria-label="Zoom in" onClick={() => maps.current[0]?.zoomIn()}>
+        <button aria-label="Acercar" onClick={() => maps.current[0]?.zoomIn()}>
           <Plus size={18} />
         </button>
-        <button
-          aria-label="Zoom out"
-          onClick={() => maps.current[0]?.zoomOut()}
-        >
+        <button aria-label="Alejar" onClick={() => maps.current[0]?.zoomOut()}>
           <Minus size={18} />
         </button>
         <span />
         <button
-          aria-label="Reset map to Piura"
+          aria-label="Volver a encuadrar el área de estudio"
           onClick={() =>
-            maps.current[0]?.easeTo({
-              ...bundle.initialView,
-              bearing: 0,
-              pitch: 0,
-            })
+            maps.current[0]?.fitBounds(
+              [
+                [west, south],
+                [east, north],
+              ],
+              { padding: MAP_PADDING, bearing: 0, pitch: 0 },
+            )
           }
         >
           <Crosshair size={18} />
@@ -641,25 +699,6 @@ export function MapExplorer({
       <div className="north">
         <span>N</span>
         <Triangle size={19} fill="currentColor" />
-      </div>
-      <div
-        className="map-status-stack"
-        aria-label="Location and basemap status"
-      >
-        <div className="location-label">
-          <MapPin size={15} />
-          <span>Piura</span>
-          <small>PERU</small>
-        </div>
-        {connection && !mapError && (
-          <div className="connection-note">
-            <DataStatus
-              kind="connection"
-              title="Basemap connection unavailable"
-              detail="Local fixture overlays remain available. Satellite imagery could not load."
-            />
-          </div>
-        )}
       </div>
       <section
         className="observation-bar panel"
@@ -671,13 +710,15 @@ export function MapExplorer({
           </span>
           <div>
             <strong>Comparación de observaciones</strong>
-            <span>Par NISAR ilustrativo</span>
+            <span>{pairNote}</span>
           </div>
         </div>
         <div className="observation-dates">
           <span>
             <small>ANTES · t1</small>
-            <time dateTime={bundle.before.date}>{bundle.before.date}</time>
+            <time dateTime={bundle.before.date}>
+              {readableDate(bundle.before.date)}
+            </time>
           </span>
           <div className="comparison-summary">
             {compare ? (
@@ -707,11 +748,13 @@ export function MapExplorer({
           </div>
           <span>
             <small>DESPUÉS · t2</small>
-            <time dateTime={bundle.after.date}>{bundle.after.date}</time>
+            <time dateTime={bundle.after.date}>
+              {readableDate(bundle.after.date)}
+            </time>
           </span>
         </div>
         <span className="pair-status">
-          <span className="status-dot" /> Par de demostración
+          <span className="status-dot" /> {pairNote}
         </span>
       </section>
       <section className="panel map-legend">
@@ -720,35 +763,34 @@ export function MapExplorer({
           onClick={() => setLegendOpen(!legendOpen)}
           aria-expanded={legendOpen}
         >
-          <span>Map legend</span>
+          <span>Leyenda del mapa</span>
           {legendOpen ? <Minus size={12} /> : <Plus size={12} />}
         </button>
         {legendOpen && (
           <>
-            {!compare && layers.change ? (
+            {!compare && layers.grid ? (
               <>
                 <div className="change-legend">
-                  <span>
-                    <i className="decrease-key" /> Decreased backscatter
-                  </span>
-                  <span>
-                    <i className="increase-key" /> Increased backscatter
-                  </span>
+                  {STATUS_LEGEND.map(([status, label]) => (
+                    <span key={status}>
+                      <i style={{ background: STATUS_FILL[status] }} /> {label}
+                    </span>
+                  ))}
                 </div>
-                <p>Demo changes · Not a flood classification</p>
+                <p>Orden de revisión sugerido · No es un pronóstico</p>
               </>
             ) : (
               <p>
                 {compare
-                  ? 'Before / after observations · Demo'
-                  : 'Surface change highlights are hidden'}
+                  ? 'Observaciones de antes y después'
+                  : 'Las celdas de análisis están ocultas'}
               </p>
             )}
             <div className="legend-key">
-              <span /> Study boundary{' '}
+              <span /> Límite del área{' '}
               {layers.water && (
                 <>
-                  <i /> Water context
+                  <i /> Vías
                 </>
               )}
             </div>
@@ -757,7 +799,7 @@ export function MapExplorer({
       </section>
       {selected && (
         <button className="selection-chip" onClick={() => onSelect(selected)}>
-          <span className="status-dot" /> Selected {selected.id}
+          <span className="status-dot" /> Seleccionada {selected.id}
           <X size={12} className="hidden-icon" />
         </button>
       )}

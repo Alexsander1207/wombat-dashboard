@@ -30,6 +30,9 @@ import type {
   BundleManifest,
   BundleOverlays,
   OverlayCorner,
+  RiskConfig,
+  SignedBlockRef,
+  SignedBlocks,
 } from "./types.ts";
 import { BundleContractError, type LoadedBundle } from "./types.ts";
 
@@ -359,6 +362,53 @@ export async function loadAndVerify(
     risks.set(p.cell_id, rb.block.payload);
   }
 
+  // ── 8bis. Bloques firmados por celda, con su veredicto real ────────
+  const verdictByPath = new Map(verdicts.checks.map((c) => [c.path, c]));
+  const refOf = ({ path, block }: { path: string; block: WonbBlock }): SignedBlockRef => {
+    const verdict = verdictByPath.get(path);
+    return {
+      type: block.type,
+      id: block.id,
+      path,
+      issuer: block.issuer,
+      issuedAt: block.issued_at,
+      validUntil: block.valid_until,
+      hashOk: verdict?.hashOk ?? false,
+      signatureOk: verdict?.signatureOk ?? false,
+      withinTtl: !isExpired(block, asOf),
+    };
+  };
+  const contextBlock = blocks.find(({ block }) => block.type === "context");
+  const byCell = (list: typeof blocks): Record<string, SignedBlockRef> =>
+    Object.fromEntries(
+      list.map((entry) => [String(entry.block.payload.cell_id), refOf(entry)]),
+    );
+  const signedBlocks: SignedBlocks = {
+    change: refOf(changeBlocks[0]),
+    context: contextBlock ? refOf(contextBlock) : null,
+    risk: byCell(riskBlocks),
+    action: byCell(actionBlocks),
+  };
+
+  // ── 8ter. Umbrales de risk-config.json (bytes ya verificados) ──────
+  let riskConfig: RiskConfig | null = null;
+  if (index.files.some((f) => f.path === "risk-config.json")) {
+    const rc = jsonOf<{
+      delta_db_threshold: number;
+      quality_min_valid_fraction: number;
+      corroboration_overlap_threshold: number;
+      road_buffer_meters: number;
+      opera_max_gap_days: number;
+    }>(await read("risk-config.json", signal));
+    riskConfig = {
+      deltaDbThreshold: rc.delta_db_threshold,
+      minValidPercent: Math.round(rc.quality_min_valid_fraction * 100),
+      corroborationPercent: Math.round(rc.corroboration_overlap_threshold * 100),
+      roadBufferM: rc.road_buffer_meters,
+      operaMaxGapDays: rc.opera_max_gap_days,
+    };
+  }
+
   // ── 9. Integridad: manifest vs change (data_origin) ────────────────
   const manifestDataOrigin = (manifestRaw as { data_origin?: string })
     .data_origin;
@@ -398,6 +448,8 @@ export async function loadAndVerify(
     actions: decodeActions(
       actionBlocks.map((ab) => ab.block.payload),
     ),
+    signedBlocks,
+    riskConfig,
     verification: {
       filesChecked: files.checks.length,
       filesOk: files.ok,

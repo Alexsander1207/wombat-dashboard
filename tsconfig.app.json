@@ -23,7 +23,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"],
-  /* Referencia de Mireya/Ximena: fuera de tsc hasta que ellas los activen. */
-  "exclude": ["src/components/_incoming"]
+  "include": ["src"]
 }

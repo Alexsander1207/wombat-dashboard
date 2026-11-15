@@ -101,6 +101,50 @@ export interface BundleAction {
   audience: string;
 }
 
+/**
+ * Un bloque WONB firmado, con el resultado REAL de su verificación.
+ *
+ * `hashOk` y `signatureOk` salen de verifyBlocks (src/verify), bloque por
+ * bloque; no son constantes. `id` es el hash del bloque: "sha256:<hex>".
+ */
+export interface SignedBlockRef {
+  type: "change" | "context" | "risk" | "action";
+  id: string;
+  path: string;
+  issuer: string;
+  issuedAt: string;
+  validUntil: string | null;
+  hashOk: boolean;
+  signatureOk: boolean;
+  /** Dentro de TTL, evaluado contra la instantánea (index.generated_at). */
+  withinTtl: boolean;
+}
+
+/**
+ * Los bloques firmados del bundle, indexados para armar la cadena de
+ * evidencia de una celda: `change` y `context` son del AOI entero; `risk` y
+ * `action` se buscan por cell_id. Solo las celdas con acción publicada tienen
+ * bloque `action`.
+ */
+export interface SignedBlocks {
+  change: SignedBlockRef;
+  context: SignedBlockRef | null;
+  risk: Record<string, SignedBlockRef>;
+  action: Record<string, SignedBlockRef>;
+}
+
+/**
+ * Umbrales de risk-config.json (archivo cubierto por el sha256 de index.json).
+ * Solo se usan para redactar la explicación en español; no recalculan nada.
+ */
+export interface RiskConfig {
+  deltaDbThreshold: number;
+  minValidPercent: number;
+  corroborationPercent: number;
+  roadBufferM: number;
+  operaMaxGapDays: number;
+}
+
 /** Contrato interno: todo lo que la UI necesita, verificado y decodificado. */
 export interface LoadedBundle {
   aoiId: string;
@@ -119,6 +163,10 @@ export interface LoadedBundle {
   overlays: BundleOverlays;
   manifest: BundleManifest;
   actions: BundleAction[];
+  /** Bloques firmados con su hash y su estado de firma, para la cadena de evidencia. */
+  signedBlocks: SignedBlocks;
+  /** `null` si el bundle no trae risk-config.json. */
+  riskConfig: RiskConfig | null;
   verification: BundleVerification;
 }
 

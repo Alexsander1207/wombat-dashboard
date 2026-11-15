@@ -1,3 +1,116 @@
+# Integración de la UI — estado en la rama `feat/design-integration`
+
+> Esta primera sección describe lo que **ya está conectado** y es la que vale
+> para trabajar hoy. Lo que sigue más abajo ("Contrato de integración") es el
+> documento anterior, de cuando los componentes estaban en `_incoming/` sin
+> conectar; se conserva como referencia del mapeo campo a campo.
+
+## Cómo fluye el dato
+
+```
+public/bundles/<aoi>/<versión>/   bytes firmados; no se editan
+        │
+src/verify/*                       hash SHA-256, firma Ed25519, cadena, emisores (no se toca)
+        │
+src/bundle/contract.ts             loadAndVerify → LoadedBundle (único que conoce el formato wire)
+        │
+src/adapters/toExplorer.ts         toExplorer(LoadedBundle) → ExplorerData (solo traduce)
+        │
+src/App.tsx                        cabecera, insignias, navegación, estados de carga y error
+        ├── src/components/MapExplorer.tsx   mapa, top del orden de revisión, leyenda
+        └── src/components/Evidence.tsx      ficha de celda, detalle y cadena de evidencia
+```
+
+Si el bundle no verifica, `loadAndVerify` lanza un error y el mapa no se
+dibuja: `App.tsx` muestra "No se pudo cargar el bundle" con el motivo.
+
+## Quién toca qué (para no pisarse)
+
+| Tarea | Archivo que SÍ puede tocar | Punto exacto |
+| --- | --- | --- |
+| Top 10 numerado sobre el mapa | `src/components/MapExplorer.tsx` | La constante `TOP_COUNT` (hoy `3`) gobierna a la vez los marcadores numerados, el contorno de las celdas destacadas y la lista del panel. Las celdas llegan ya ordenadas en `bundle.ranked` (puesto 1 primero). |
+| Ficha de cada celda | `src/components/Evidence.tsx` | `EvidenceCard` (ficha flotante), `EvidenceDetails` (detalle) y `EvidenceChain` (cadena firmada). Reciben un `ExplorerCell`. |
+| Titular | `src/App.tsx` | El bloque `<div className="header-context">` de la cabecera. |
+| Estilos nuevos de cualquiera de las tres | `src/styles/integration.css` | Agregar al final, cada una en su propio bloque con un comentario. No editar `src/App.css` ni `src/styles/mireya/*` (son el diseño original). |
+
+Reglas para las tres tareas:
+
+- **Nadie toca** `src/verify/*`, `src/bundle/*`, `dashboard.config.json`,
+  `public/bundles/*` ni `tests/*`. Si falta un dato, se pide: se agrega en
+  `src/adapters/toExplorer.ts` y lo hace una sola persona, avisando a la otra.
+- Los textos van en español. Lenguaje de producto: "preparación" y "orden de
+  revisión sugerido".
+- El top 10 **no** implica diez bloques `action`: el bundle solo publica
+  acción para las 3 primeras celdas (`top_n_actions: 3` en `risk-config.json`).
+  Las celdas 4 a 10 tienen puesto y bloque `risk` firmado, pero su eslabón
+  "Acción" llega con `block: null`. La UI ya lo contempla.
+
+## La cadena de evidencia: qué componente recibe los cuatro bloques
+
+El componente es **`EvidenceChain`** en `src/components/Evidence.tsx`:
+
+```tsx
+<EvidenceChain cell={cell} />   // cell: ExplorerCell
+```
+
+`cell.chain` es una tupla de cuatro eslabones, siempre en este orden:
+cambio, contexto OPERA, riesgo, acción. Cada eslabón es un `EvidenceLink`
+(definido en `src/adapters/toExplorer.ts`):
+
+```ts
+interface EvidenceLink {
+  type: "change" | "context" | "risk" | "action";
+  title: string;      // "Cambio", "Contexto OPERA y vías", "Riesgo", "Acción"
+  summary: string;    // qué acredita ese bloque para esta celda
+  block: SignedBlockRef | null;   // null si la celda no tiene ese bloque
+}
+
+interface SignedBlockRef {          // src/bundle/types.ts
+  type: "change" | "context" | "risk" | "action";
+  id: string;            // EL HASH del bloque: "sha256:<64 hex>"
+  path: string;          // p. ej. "wonb/risk/tailandia-01-r19c12.json"
+  issuer: string;        // "ed25519:<64 hex>"
+  issuedAt: string;
+  validUntil: string | null;
+  hashOk: boolean;       // sha256(JCS(cuerpo)) coincide con id
+  signatureOk: boolean;  // la firma Ed25519 verifica
+  withinTtl: boolean;    // vigente contra la instantánea (index.generated_at)
+}
+```
+
+`hashOk` y `signatureOk` **no son constantes**: salen de `verifyBlocks`
+(`src/verify/bundle.ts`), bloque por bloque, en `src/bundle/contract.ts`.
+Los bloques `change` y `context` son del AOI entero, así que todas las celdas
+de un bundle comparten esos dos hashes; `risk` y `action` son de la celda.
+
+## De dónde sale el texto en español de cada celda
+
+Las frases del tipo "49% of valid pixels decreased ≥3 dB" vienen **dentro del
+bloque `risk` firmado** (`payload.explanation`), en inglés. No se pueden
+traducir ahí: cambiaría el hash del bloque. `explainInSpanish` en
+`src/adapters/toExplorer.ts` redacta la misma frase en español a partir de los
+campos numéricos del mismo bloque (`metrics.*`) y de los umbrales de
+`risk-config.json`, que está cubierto por el sha256 de `index.json`.
+
+## Qué cambió respecto del diseño original, y por qué
+
+- **Sin teselas satelitales remotas.** El diseño pedía imágenes a un servidor
+  externo; el dashboard tiene que funcionar estático y sin red. El fondo es un
+  color y encima van los rásteres reales del bundle (t1, t2 y delta).
+- **Sin datos de demostración.** `demoAdapter`, los rásteres generados en un
+  `<canvas>` y las miniaturas decorativas de radar no se trajeron.
+- **Verificación real en lugar del botón "Verify Evidence".** El botón del
+  diseño llamaba a un servicio que no existía; ahora se muestra el resultado
+  de la verificación que ya ocurrió al cargar.
+- **Insignia de integridad** en la cabecera y en el pie, y selector de AOI,
+  que el diseño no tenía porque su demo era de un solo AOI.
+- **Colores de celda** en rampa de un solo tono según el orden de revisión,
+  en lugar de naranja/azul por signo del cambio.
+
+La autoría de cada archivo copiado está en `CREDITS.md`.
+
+---
+
 # Integración de UI: del bundle verificado al Explorer
 
 Para **Mireya (@Mireyamd)** y **Ximena (@Ximenacode)**.
