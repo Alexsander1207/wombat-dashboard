@@ -10,9 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,700;1,700;1,800&family=Nunito+Sans:wght@400;600;700;800&display=swap"
     />
-    <meta name="theme-color" content="#214B7D" />
+    <meta name="theme-color" content="#0f0f10" />
     <!--
       Pantalla de carga. Vive aquí, y no en el CSS de la app, porque tiene que
       verse antes de que llegue el JavaScript: es lo primero que ve quien abre
@@ -22,9 +22,9 @@
     -->
     <style>
       /* Tema según el sistema: oscuro por defecto, claro si el sistema lo pide. */
-      html { background: #14213c; --boot-ink: #eef5ff; --boot-track: rgba(118, 207, 223, 0.16); --boot-bar: #76cfdf; }
+      html { background: #0f0f10; --boot-ink: #f4f1ea; --boot-track: rgba(255, 255, 255, 0.12); --boot-bar: #3ec7ba; }
       @media (prefers-color-scheme: light) {
-        html { background: #edf1f7; --boot-ink: #14263d; --boot-track: rgba(11, 114, 133, 0.18); --boot-bar: #0b7285; }
+        html { background: #f5f4f0; --boot-ink: #1c1b19; --boot-track: rgba(28, 27, 25, 0.12); --boot-bar: #0a7c76; }
       }
       .boot-loader {
         position: fixed;
@@ -34,7 +34,7 @@
         place-items: center;
         padding: 16px;
         pointer-events: none;
-        font-family: Inter, 'Segoe UI', Arial, sans-serif;
+        font-family: 'Nunito Sans', 'Segoe UI', Arial, sans-serif;
       }
       /* Sin tarjeta: el wombat, el texto y la barra van directo sobre el fondo. */
       .boot-loader-card {
@@ -57,9 +57,10 @@
       }
       .boot-loader-title {
         margin: 0;
-        font-family: 'Space Grotesk', Inter, 'Segoe UI', Arial, sans-serif;
-        font-size: 17px;
-        font-weight: 600;
+        font-family: Montserrat, 'Segoe UI', Arial, sans-serif;
+        font-style: italic;
+        font-size: 18px;
+        font-weight: 800;
         letter-spacing: -0.01em;
         text-align: center;
       }

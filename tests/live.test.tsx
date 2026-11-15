@@ -275,7 +275,7 @@ describe('LiveFeed', () => {
     expect(screen.getByText(/tailandia-01 · issued 15 Nov 2026, 15:17 UTC/)).toBeInTheDocument()
     expect(screen.getByText('Real NISAR data')).toBeInTheDocument()
     expect(screen.getByText(/verified in this browser/)).toBeInTheDocument()
-    expect(screen.getByText(/No newer event on the network for this area yet/)).toBeInTheDocument()
+    expect(screen.getByText(/No newer event on the network yet/)).toBeInTheDocument()
   })
 
   it('sin conexión lo dice, aclara que el mapa sigue y conserva el registro del área', () => {
