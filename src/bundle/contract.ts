@@ -40,9 +40,104 @@ export type { LoadedBundle } from "./types.ts";
 
 type ReadBytes = (path: string, signal?: AbortSignal) => Promise<Uint8Array>;
 
+/** Avance de la carga, para la barra de "Cargando…". */
+export interface LoadProgress {
+  /** files: descargando y comprobando sha256; signatures: firmas y cadena. */
+  stage: "files" | "signatures";
+  /** Archivos ya comprobados de `total`. */
+  done: number;
+  total: number;
+  /** 0..1 según los bytes recibidos, no según los archivos; nunca retrocede. */
+  fraction: number;
+}
+
+/** Tamaño supuesto de un archivo cuyo tamaño aún no se conoce (un bloque WONB pesa ~1-2 KB). */
+const UNKNOWN_FILE_BYTES = 2048;
+
+/**
+ * Cuenta los bytes del bundle según llegan, para que la barra avance con lo
+ * que de verdad falta. Contar archivos engaña: los rásteres t1/t2 pesan más
+ * de 1 MB cada uno y llegan al final con conexiones lentas, así que la barra
+ * se quedaba en "100 %" mientras faltaba lo más pesado.
+ *
+ * Usa el tamaño anunciado (Content-Length, solo sin compresión) cuando lo hay
+ * y una estimación cuando no; al terminar cada archivo vale su tamaño real.
+ * Solo mide avance: no interviene en la verificación de los bytes.
+ */
+class ByteMeter {
+  private files = new Set<string>();
+  private got = new Map<string, number>();
+  private size = new Map<string, number>();
+  private finished = new Set<string>();
+  private gotSum = 0;
+  private wantSum = 0;
+  private best = 0;
+  private onChange: () => void;
+
+  constructor(onChange: () => void) {
+    this.onChange = onChange;
+  }
+
+  /** Desde aquí se cuentan solo los archivos del índice. */
+  track(paths: string[]): void {
+    this.files = new Set(paths);
+    this.wantSum = paths.length * UNKNOWN_FILE_BYTES;
+  }
+
+  announce(path: string, bytes: number): void {
+    this.update(path, () => this.size.set(path, bytes));
+  }
+
+  add(path: string, bytes: number): void {
+    this.update(path, () => this.got.set(path, (this.got.get(path) ?? 0) + bytes));
+  }
+
+  finish(path: string, bytes: number): void {
+    this.update(path, () => {
+      this.got.set(path, Math.max(this.got.get(path) ?? 0, bytes));
+      this.finished.add(path);
+    });
+  }
+
+  fraction(): number {
+    if (this.wantSum > 0) this.best = Math.max(this.best, Math.min(1, this.gotSum / this.wantSum));
+    return this.best;
+  }
+
+  private want(path: string): number {
+    const got = this.got.get(path) ?? 0;
+    if (this.finished.has(path)) return got;
+    return Math.max(this.size.get(path) ?? UNKNOWN_FILE_BYTES, got);
+  }
+
+  private update(path: string, change: () => void): void {
+    if (!this.files.has(path)) return;
+    const wantBefore = this.want(path);
+    const gotBefore = this.got.get(path) ?? 0;
+    change();
+    this.wantSum += this.want(path) - wantBefore;
+    this.gotSum += (this.got.get(path) ?? 0) - gotBefore;
+    this.onChange();
+  }
+}
+
+/**
+ * Cuántos archivos del bundle se piden a la vez. El bundle de Tailandia trae
+ * ~615 archivos pequeños y cada petición tarda ~150 ms de ida y vuelta, así
+ * que con pocas en vuelo la carga es una fila de espera. Medido en producción
+ * (Vercel, HTTP/2, noviembre 2026): con 12 a la vez, 8,5-9 s; con 32, 3,4-4 s;
+ * con 64, 2,2-2,4 s; con 128, 1,8-1,9 s. HTTP/2 lleva todas por una sola
+ * conexión; en HTTP/1.1 el navegador las pone en cola solo.
+ */
+const FETCH_CONCURRENCY = 128;
+
 let bundleLoadSequence = 0;
 
-async function defaultReadBytes(base: string, signal?: AbortSignal): Promise<ReadBytes> {
+async function defaultReadBytes(
+  base: string,
+  signal?: AbortSignal,
+  meter?: ByteMeter,
+): Promise<ReadBytes> {
   return async (path: string, sig?: AbortSignal): Promise<Uint8Array> => {
     const response = await fetch(`${base}/${path}`, { cache: "default", signal: sig ?? signal });
     if (!response.ok) {
@@ -50,7 +145,31 @@ async function defaultReadBytes(base: string, signal?: AbortSignal): Promise<Rea
         `No se pudo leer ${path} (HTTP ${response.status})`,
       );
     }
-    return new Uint8Array(await response.arrayBuffer());
+    // Content-Length mide los bytes comprimidos: solo sirve si no hay compresión.
+    const encoding = response.headers.get("content-encoding");
+    const length = Number(response.headers.get("content-length"));
+    if ((!encoding || encoding === "identity") && length > 0) meter?.announce(path, length);
+    if (!meter || !response.body) return new Uint8Array(await response.arrayBuffer());
+
+    // Leer por partes solo para contar el avance. Los bytes se unen tal cual
+    // llegan y pasan por el mismo sha256 que antes.
+    const reader = response.body.getReader();
+    const parts: Uint8Array[] = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parts.push(value);
+      total += value.byteLength;
+      meter.add(path, value.byteLength);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const part of parts) {
+      bytes.set(part, offset);
+      offset += part.byteLength;
+    }
+    return bytes;
   };
 }
 
@@ -258,17 +377,25 @@ type CellStatus = "review_high" | "review_medium" | "review_low" | "insufficient
  * @param baseUrl o ruta base donde está index.json
  * @param trustedIssuers emisores de confianza (claves públicas + roles)
  * @param readBytes función para leer bytes de un archivo (por defecto usa fetch)
+ * @param onProgress avance de la carga (archivos comprobados de N, luego firmas)
  */
 export async function loadAndVerify(
   baseUrl: string,
   trustedIssuers: { issuer: string; roles: string[] }[],
   readBytes?: ReadBytes,
   signal?: AbortSignal,
+  onProgress?: (progress: LoadProgress) => void,
 ): Promise<LoadedBundle> {
   const base = baseUrl.replace(/\/$/, "");
   const perfId = ++bundleLoadSequence;
   const perfStart = typeof performance !== "undefined" ? performance.now() : null;
-  const sourceRead = readBytes ?? (await defaultReadBytes(base, signal));
+
+  let filesDone = 0;
+  let filesTotal = 0;
+  const meter = new ByteMeter(() =>
+    onProgress?.({ stage: "files", done: filesDone, total: filesTotal, fraction: meter.fraction() }),
+  );
+  const sourceRead = readBytes ?? (await defaultReadBytes(base, signal, onProgress ? meter : undefined));
 
   // Cada recurso se obtiene una sola vez. La misma promesa/bytes se reutiliza
   // para SHA-256 y decodificación: no hay una segunda descarga ni una ventana
@@ -277,7 +404,10 @@ export async function loadAndVerify(
   const read: ReadBytes = (path, readSignal) => {
     const cached = reads.get(path);
     if (cached) return cached;
-    const pending = sourceRead(path, readSignal ?? signal);
+    const pending = sourceRead(path, readSignal ?? signal).then((bytes) => {
+      meter.finish(path, bytes.byteLength);
+      return bytes;
+    });
     reads.set(path, pending);
     return pending;
   };
@@ -288,7 +418,13 @@ export async function loadAndVerify(
   checkContractVersion(index);
 
   // ── 2. sha256 de cada archivo ──────────────────────────────────────
-  const files = await verifyFileHashes(index, read, 12);
+  filesTotal = index.files.length;
+  meter.track(index.files.map((f) => f.path));
+  onProgress?.({ stage: "files", done: 0, total: filesTotal, fraction: meter.fraction() });
+  const files = await verifyFileHashes(index, read, FETCH_CONCURRENCY, (done) => {
+    filesDone = done;
+    onProgress?.({ stage: "files", done, total: filesTotal, fraction: meter.fraction() });
+  });
   if (!files.ok) {
     throw new BundleContractError(
       `Integridad del bundle comprometida: ${files.failures.length} de ${files.checks.length} archivo(s) no coinciden`,
@@ -328,6 +464,12 @@ export async function loadAndVerify(
   }
 
   // ── 4. Verificar bloques (hash + firma) ────────────────────────────
+  onProgress?.({
+    stage: "signatures",
+    done: files.checks.length,
+    total: files.checks.length,
+    fraction: 1,
+  });
   const blockVerifyStart = perfStart === null ? null : performance.now();
   const verdicts = verifyBlocks(blocks);
   if (!verdicts.ok) {

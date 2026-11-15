@@ -56,13 +56,16 @@ export async function verifyFileHashes(
   index: BundleIndex,
   readBytes: ReadBytes,
   concurrency = 12,
+  /** Se llama tras comprobar cada archivo (bien o mal): para la barra de carga. */
+  onProgress?: (done: number, total: number) => void,
 ): Promise<BundleFileReport> {
   const checks: FileCheck[] = new Array(index.files.length);
   const workerCount = Math.max(1, Math.min(index.files.length, Math.floor(concurrency)));
   let nextIndex = 0;
+  let done = 0;
 
-  // Pool acotado: evita el waterfall secuencial sin lanzar cientos de
-  // solicitudes simultáneas. Los resultados conservan el orden del índice.
+  // Pool acotado: evita el waterfall secuencial sin lanzar todas las
+  // solicitudes a la vez. Los resultados conservan el orden del índice.
   const worker = async (): Promise<void> => {
     while (true) {
       const current = nextIndex++;
@@ -88,6 +91,7 @@ export async function verifyFileHashes(
           problem: `no se pudo leer: ${String(cause)}`,
         };
       }
+      onProgress?.(++done, index.files.length);
     }
   };
 
