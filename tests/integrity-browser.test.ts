@@ -60,7 +60,7 @@ beforeAll(() => {
 vi.mock("../src/components/MapExplorer.tsx", () => ({
   MapExplorer: ({ bundle }: { bundle: LoadedBundle }) =>
     React.createElement("div", { "data-testid": "map-view" },
-      `Mapa: ${bundle.aoiId}`),
+      `Mapa: ${bundle.aoiId}/${bundle.bundleVersion}`),
 }));
 
 // Mock de loadAndVerify
