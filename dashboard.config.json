@@ -1,6 +1,14 @@
 {
   "bundles": [
     {
+      "aoi": "tailandia-01",
+      "version": "v1",
+      "source": "../Wombat-core/data",
+      "issuers": [
+        "ed25519:277cfe8e61989939675d9ac3412bc37f1316d0ad4cca235b1e3124a521aed8fc"
+      ]
+    },
+    {
       "aoi": "piura-demo",
       "version": "v0",
       "source": "../Wombat-core/contracts/v1/fixtures/bundle",

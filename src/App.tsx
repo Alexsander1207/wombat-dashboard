@@ -24,7 +24,40 @@ interface BundleEntry {
   aoi: string;
   version: string;
   source: string;
-  issuers: { issuer: string; roles: string[] }[];
+  /**
+   * Claves públicas pinneadas, como cadenas "ed25519:<hex>".
+   *
+   * Este es el formato de dashboard.config.json y el que consume
+   * scripts/sync-data.mjs, que es el verificador autoritativo del bundle.
+   */
+  issuers: string[];
+}
+
+/** Roles que se conceden a una clave pinneada, igual que en sync-data.mjs. */
+const PINNED_ROLES = ["change", "context", "risk", "action"];
+
+/**
+ * Insignia de procedencia, derivada del bloque `change` FIRMADO, nunca del
+ * manifiesto: si los dos discrepan, contract.ts lo expone como
+ * integrityWarning y la insignia sigue al dato firmado.
+ */
+function originBadge(
+  dataOrigin: string,
+  maturity: string,
+): { className: string; text: string } {
+  if (dataOrigin === "nisar_real") {
+    return { className: "banner real", text: `NISAR real · ${maturity}` };
+  }
+  if (dataOrigin === "simulated") {
+    return {
+      className: "banner simulated",
+      text: "SIMULATED — fixture de desarrollo, no es un AOI real",
+    };
+  }
+  return {
+    className: "banner maturity",
+    text: `Procedencia sin clasificar: ${dataOrigin} · ${maturity}`,
+  };
 }
 
 interface Config {
@@ -85,7 +118,14 @@ export default function App() {
     setError(null);
 
     const base = `${import.meta.env.BASE_URL}bundles/${selectedBundle.aoi}/${selectedBundle.version}`;
-    const issuers = selectedBundle.issuers.map((i) => ({ issuer: i.issuer, roles: i.roles }));
+    // Las entradas de dashboard.config.json son cadenas de clave pública.
+    // Se les concede el mismo conjunto de roles que en sync-data.mjs; los roles
+    // NO se leen del trusted-issuers.json que viaja dentro del bundle, porque
+    // entonces el bundle declararía sus propios permisos.
+    const issuers = selectedBundle.issuers.map((pubkey) => ({
+      issuer: pubkey,
+      roles: PINNED_ROLES,
+    }));
 
     loadAndVerify(base, issuers, undefined, controller.signal)
       .then((b) => {
@@ -157,25 +197,18 @@ export default function App() {
 
   // ── 6. Render principal ──────────────────────────────────────────────
   const top3 = bundle.actions.slice(0, 3);
-  const simulated = bundle.dataOrigin === "simulated";
+  const badge = originBadge(bundle.dataOrigin, bundle.manifest.maturity);
   const highCount = bundle.cells.filter((c) => c.status === "review_high").length;
   const mediumCount = bundle.cells.filter((c) => c.status === "review_medium").length;
   const lowCount = bundle.cells.filter((c) => c.status === "review_low").length;
   const insufficientCount = bundle.cells.filter((c) => c.status === "insufficient_quality").length;
-  const issuerAbbr = abbrIssuer(selectedBundle.issuers[0].issuer);
+  const issuerAbbr = abbrIssuer(selectedBundle.issuers[0]);
 
   return (
     <div className="app">
-      {simulated && (
-        <div className="banner simulated">
-          SIMULATED DATA — fixture de desarrollo, no es un AOI real
-        </div>
-      )}
-      {!simulated && (
-        <div className="banner maturity">
-          Madurez: {bundle.manifest.maturity} · {bundle.manifest.aoiName}
-        </div>
-      )}
+      <div className={badge.className}>
+        {badge.text} · {bundle.manifest.aoiName}
+      </div>
       <header className="toolbar">
         <label htmlFor="aoi-selector">
           Área de interés:
