@@ -102,7 +102,7 @@ export function LiveFeed({
         <span className={`live-origin ${real ? 'is-real' : ''}`}>{origin}</span>
       </p>
       <p className="explorer-summary-meta">
-        Area: {area.aoiId} · issued{' '}
+        {area.aoiId} · issued{' '}
         {englishDateTime(toMillis(latest ? latest.issuedAt : area.issuedAt))}
       </p>
 

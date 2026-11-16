@@ -505,8 +505,15 @@ export function MapExplorer({
     const bounds = new maplibregl.LngLatBounds()
     for (const ring of selected.geometry.coordinates)
       for (const [lng, lat] of ring) bounds.extend([lng, lat])
-    const width = baseContainer.current?.clientWidth ?? 0
-    const padding = width > 1100
+    const container = baseContainer.current
+    const width = container?.clientWidth ?? 0
+    // With the docked sidebar (ocean-polish.css sets --map-docked) nothing
+    // covers the map, so the cell is framed with room to see its surroundings.
+    const docked = container !== null
+      && getComputedStyle(container).getPropertyValue('--map-docked').trim() === '1'
+    const padding = docked
+      ? Math.round(Math.min(width, container.clientHeight) * 0.3)
+      : width > 1100
       ? { top: 140, bottom: 230, left: 320, right: 380 }
       : width > 0 && width <= 760
         ? { top: Math.min(520, (baseContainer.current?.clientHeight ?? 820) * 0.62), bottom: 180, left: 24, right: 24 }
