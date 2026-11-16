@@ -17,6 +17,7 @@
  *
  * Distribución (pantallas de 1280 px o más): barra lateral fija a la
  * izquierda y franja inferior; el mapa queda despejado, en su propio marco.
+ * La evidencia de una celda se abre en la barra lateral, no sobre el mapa.
  */
 
 /* ── 1. Variables ─────────────────────────────────────────────────────── */
@@ -370,7 +371,7 @@
     --rail-w: 364px;
     --rail-pad: 20px;
     --rail-foot: 172px;
-    --dock-h: 180px;
+    --dock-h: 164px;
     --obs-w: 392px;
     --area-w: 236px;
   }
@@ -387,6 +388,8 @@
     min-height: 0;
     overflow: visible;
     background: transparent;
+    /* MapExplorer lo lee: con la barra lateral nada tapa el mapa. */
+    --map-docked: 1;
   }
   .explorer-layout > .explorer-canvas,
   .explorer-layout > .explorer-before { border-radius: 16px; overflow: hidden; }
@@ -433,10 +436,47 @@
   }
   .explorer-layout .explorer-panel-close { top: 12px; right: 4px; }
 
-  /* Sobre el mapa solo quedan sus controles. */
-  .explorer-right-dock { top: 76px; right: 14px; bottom: 48px; }
-  .explorer-map-tools { right: 14px; }
-  .explorer-has-evidence .explorer-map-tools { right: 362px; }
+  /* La evidencia de la celda va en la barra lateral, en el sitio de la lista;
+     sobre el mapa solo quedan sus controles y la leyenda. */
+  .explorer-right-dock,
+  .explorer-right-dock:not(.with-evidence) { display: contents; }
+  .explorer-right-dock > .explorer-evidence-panel {
+    position: absolute;
+    z-index: 7;
+    top: calc(var(--ocean-clearance) + 42px);
+    left: calc(var(--rail-pad) - var(--rail-w));
+    bottom: calc(var(--rail-foot) - var(--dock-h));
+    width: calc(var(--rail-w) - 2 * var(--rail-pad));
+    pointer-events: auto;
+    background: transparent;
+    border: 0;
+    border-top: 2px solid var(--ocean-coral);
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  .explorer-evidence-fold > summary { padding: 14px 40px 14px 2px; }
+  .explorer-evidence-close { right: 2px; top: 9px; }
+  .explorer-evidence-body { padding: 14px 6px 12px 2px; }
+  .explorer-has-evidence .explorer-left-panel { visibility: hidden; pointer-events: none; }
+  /* Evidencia plegada (flecha de su cabecera): queda solo su título y debajo
+     vuelve a verse la lista. */
+  .explorer-layout:has(.explorer-evidence-fold:not([open])) .explorer-evidence-panel { bottom: auto; overflow: visible; }
+  .explorer-layout:has(.explorer-evidence-fold:not([open])) .explorer-left-panel {
+    visibility: visible;
+    pointer-events: auto;
+    top: calc(var(--ocean-clearance) + 100px);
+  }
+  .explorer-right-dock > .explorer-legend {
+    position: absolute;
+    z-index: 7;
+    right: 14px;
+    bottom: 48px;
+    width: 236px;
+    pointer-events: auto;
+  }
+  .explorer-map-tools,
+  .explorer-has-evidence .explorer-map-tools { right: 14px; }
   .explorer-layout .explorer-selection-chip { bottom: 16px; }
   .explorer-comparison-labels { bottom: 62px; }
   .explorer-map-message { top: 72px; }
@@ -505,13 +545,23 @@
   /* Metodología ocupa toda la pantalla: sin barra ni franja. */
   .explorer-app.ocean-guide-open { background: var(--guide-bg); }
 }
-/* Entre 1280 y 1439 px: barra y tarjetas algo más estrechas, franja más alta. */
+/* Entre 1280 y 1439 px: barra y tarjetas algo más estrechas. */
 @media (min-width: 1280px) and (max-width: 1439px) {
   .explorer-app {
     --rail-w: 344px;
-    --dock-h: 198px;
+    --dock-h: 172px;
     --obs-w: 352px;
     --area-w: 204px;
   }
   .explorer-brand :is(img, .brand-logo) { width: 196px; }
+}
+/* Pantallas bajas: el mapa y la evidencia necesitan el alto. La franja se
+   acorta y, mientras hay una celda elegida, "Verified data" cede su sitio
+   (la evidencia ya trae la verificación de esa celda). */
+@media (min-width: 1280px) and (max-height: 859px) {
+  .explorer-app { --dock-h: 158px; }
+  .explorer-integrity .live-foot { display: none; }
+  .explorer-app:has(.explorer-has-evidence) .explorer-integrity > .integrity-panel:not(.live-feed) { display: none; }
+  .explorer-has-evidence .explorer-evidence-panel,
+  .explorer-has-evidence .explorer-left-panel { bottom: calc(14px - var(--dock-h)); }
 }
